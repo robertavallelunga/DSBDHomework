@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package usermanager;
+
+service UserService {
+  // Il Data Collector chiede se un utente esiste
+  rpc UserExists (UserRequest) returns (UserResponse);
+}
+
+message UserRequest {
+  string email = 1;
+}
+
+message UserResponse {
+  bool exists = 1;
+}

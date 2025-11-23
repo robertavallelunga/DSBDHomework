@@ -1,0 +1,65 @@
+services:
+  dataDB:
+    image: mysql:8.0
+    container_name: dataDB
+    ports:
+      - "3310:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=ermenegildo
+      - MYSQL_DATABASE=mysqldataDB
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+    networks:
+      - dataNet
+
+  userDB:
+    image: mysql:8.0
+    container_name: userDB
+    ports:
+      - "3311:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=pasquale
+      - MYSQL_DATABASE=mysqluserDB
+    volumes:
+      - ./mysql_user:/var/lib/mysql
+    networks:
+      - userNet
+
+
+  data:   #gRPC client
+    build: ./DataCollector
+    container_name: dataCollector
+    depends_on:
+      - dataDB
+    ports:
+      - "5002:5000"
+    environment:
+      - TARGET_GRPC_HOST=userCollector
+      - TARGET_GRPC_PORT=50051
+      - DB_HOST=dataDB
+      - DB_NAME=mysqldataDB
+    networks:
+      - dataNet
+      - internalNet
+
+
+  user:   #gRPC server
+    build: ./UserCollector
+    container_name: userCollector
+    depends_on:
+      - userDB
+    ports:
+      - "5001:5000"
+    environment:
+      - GRPC_PORT=50051
+      - DB_HOST=userDB
+      - DB_NAME=mysqluserDB
+    networks:
+      - userNet
+      - internalNet
+
+
+networks:
+  dataNet:
+  userNet:
+  internalNet:
