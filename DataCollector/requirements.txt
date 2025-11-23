@@ -1,6 +1,5 @@
 flask
-flask_sqlalchemy
-pymysql
+mysql-connector-python
 grpcio
 grpcio-tools
 cryptography

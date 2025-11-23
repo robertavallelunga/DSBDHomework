@@ -20,6 +20,7 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=pasquale
       - MYSQL_DATABASE=mysqluserDB
+      - MYSQL_ROOT_PASSWORD=pasquale
     volumes:
       - ./mysql_user:/var/lib/mysql
     networks:
@@ -34,7 +35,7 @@ services:
     ports:
       - "5002:5000"
     environment:
-      - TARGET_GRPC_HOST=userCollector
+      - TARGET_GRPC_HOST=userManager
       - TARGET_GRPC_PORT=50051
       - DB_HOST=dataDB
       - DB_NAME=mysqldataDB
@@ -44,8 +45,8 @@ services:
 
 
   user:   #gRPC server
-    build: ./UserCollector
-    container_name: userCollector
+    build: ./UserManager
+    container_name: userManager
     depends_on:
       - userDB
     ports:

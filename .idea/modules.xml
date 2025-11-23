@@ -3,6 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/DSBDHomework.iml" filepath="$PROJECT_DIR$/DSBDHomework.iml" />
+      <module fileurl="file://$PROJECT_DIR$/DataCollector/DataCollector.iml" filepath="$PROJECT_DIR$/DataCollector/DataCollector.iml" />
+      <module fileurl="file://$PROJECT_DIR$/UserManager/UserManager.iml" filepath="$PROJECT_DIR$/UserManager/UserManager.iml" />
     </modules>
   </component>
 </project>
