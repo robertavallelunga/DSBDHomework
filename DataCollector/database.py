@@ -5,9 +5,9 @@ import mysql.connector
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
     'user': 'root',
-    #'port': '3311',
-    'password': os.getenv('MYSQL_ROOT_PASSWORD', 'pasquale'), # password dal compose
-    'database': os.getenv('DB_NAME', 'mysqluserDB')
+    #'port': '3310',
+    'password': os.getenv('MYSQL_ROOT_PASSWORD', 'ermenegildo'), # password dal compose
+    'database': os.getenv('DB_NAME', 'mysqldataDB')
 }
 
 def get_db_connection():
@@ -22,15 +22,15 @@ def init_db():
 
         # Creazione Tabella Utenti
         cursor.execute("""
-                       CREATE TABLE IF NOT EXISTS users (
-                           email VARCHAR(255) PRIMARY KEY,
-                           nome VARCHAR(100),
-                           cognome VARCHAR(100)
+                       CREATE TABLE IF NOT EXISTS interests (
+                           id INT AUTO_INCREMENT PRIMARY KEY,
+                           email_user VARCHAR(255),
+                           cod_aeroporto VARCHAR(10)
                            )
                        """)
         conn.commit()
         cursor.close()
         conn.close()
-        print("Tabella 'users' inizializzata con successo.")
+        print("Tabella 'interests' inizializzata con successo.")
     except Exception as e:
         print(f"Errore durante l'init del DB: {e}")

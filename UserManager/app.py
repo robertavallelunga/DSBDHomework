@@ -1,7 +1,6 @@
 import os
 import threading
 from flask import Flask, request, jsonify
-
 from database import get_db_connection, init_db
 from grpc_server import serve_grpc
 app = Flask(__name__)

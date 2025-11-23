@@ -6,7 +6,7 @@ import user_pb2
 import user_pb2_grpc
 
 class UserService(user_pb2_grpc.UserServiceServicer):
-    def CheckUserExists(self, request, context):
+    def UserExists(self, request, context):
         """Verifica esistenza utente per il DataCollector"""
         conn = get_db_connection()
         cursor = conn.cursor()
