@@ -20,12 +20,13 @@ def init_db():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Creazione Tabella Utenti
+        # Creazione Tabella Interessi
         cursor.execute("""
                        CREATE TABLE IF NOT EXISTS interests (
                            id INT AUTO_INCREMENT PRIMARY KEY,
                            email_user VARCHAR(255),
-                           cod_aeroporto VARCHAR(10)
+                           cod_aeroporto VARCHAR(10),
+                           UNIQUE (email_user, cod_aeroporto)
                            )
                        """)
         conn.commit()

@@ -35,11 +35,16 @@ def add_interest():
     # 2. Salva interesse
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO interests (email_user, cod_aeroporto) VALUES (%s, %s)", (email, airport))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return jsonify({"message": "Aeroporto aggiunto"}), 201
+    try:
+        cursor.execute("INSERT INTO interests (email_user, cod_aeroporto) VALUES (%s, %s)", (email, airport))
+        conn.commit()
+        return jsonify({"message": "Aeroporto aggiunto"}), 201
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": "L'aeroporto è già inserito negli interessi"}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 if __name__ == '__main__':
     init_db()
