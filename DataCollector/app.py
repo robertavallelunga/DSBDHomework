@@ -41,7 +41,7 @@ def add_interest():
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO interests (user_email, cod_aeroporto) VALUES (%s, %s)", (email, airport))
+        cursor.execute("INSERT INTO interests (email_user, cod_aeroporto) VALUES (%s, %s)", (email, airport))
         conn.commit()
         return jsonify({"message": "Aeroporto aggiunto"}), 201
     except Exception as e:
@@ -60,7 +60,7 @@ def visualizza_interessi():
     if not check_user_exists_grpc(user_email):
         return jsonify({"error": "User non trovato nel database"}), 404
     try:
-        select_query = "SELECT id,user_email,cod_aeroporto FROM interests WHERE email_user=%s"
+        select_query = "SELECT id,email_user,cod_aeroporto FROM interests WHERE email_user=%s"
         cursor.execute(select_query, (user_email,))
         risultati = cursor.fetchall()
         interessi_list = []

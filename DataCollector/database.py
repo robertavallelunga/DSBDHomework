@@ -7,15 +7,42 @@ DB_CONFIG = {
     'user': 'root',
     #'port': '3310',
     'password': os.getenv('MYSQL_ROOT_PASSWORD', 'ermenegildo'), # password dal compose
-    'database': os.getenv('DB_NAME', 'mysqldataDB')
+    'database': os.getenv('DB_NAME', 'mysqldataDB'),
+    'pool_name':"data_pool",
+    'pool_size':10, # Numero di connessioni sempre attive
+    'pool_reset_session':True
 }
 
+connection_pool = None
+
 def get_db_connection():
-    return mysql.connector.connect(**DB_CONFIG)
+    global connection_pool
+
+    if connection_pool is None:
+        retries = 5
+        while retries > 0:
+            try:
+                # Creiamo la piscina con 5 connessioni pronte all'uso
+                connection_pool = mysql.connector.pooling.MySQLConnectionPool(**DB_CONFIG)
+                break
+            except mysql.connector.Error as err:
+                print(f"Errore: {err}")
+                print(f"Riprovo tra 5 secondi... ({retries} rimasti)")
+                time.sleep(5)
+                retries -= 1
+
+        if connection_pool is None:
+            raise Exception("Impossibile connettersi al database (Pool creation failed).")
+
+    try:
+        connection = connection_pool.get_connection()
+        return connection
+    except Exception as e:
+        print(f"[ERROR] DB: Impossibile ottenere connessione dal pool: {e}")
+        raise e
+
 
 def init_db():
-    # Attesa per l'avvio del DB container
-    time.sleep(20)
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
