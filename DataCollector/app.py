@@ -215,6 +215,159 @@ def visualizza_voli():
         cursor.close()
         connection.close()
 
+@app.route('/last_flights', methods=['GET'])
+def get_last_flights():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    aeroporto = request.args.get('cod_aeroporto')
+    user_email = request.args.get('user_email')
+
+    if not aeroporto or not user_email:
+        return jsonify({"error": "Parametri 'cod_aeroporto' e 'user_id' mancanti."}), 400
+
+    risultati_finali = {
+        "ultimo_volo_in_partenza": None,
+        "ultimo_volo_in_arrivo": None
+    }
+
+    try:
+        check_interest_query = """
+                               SELECT 1
+                               FROM interests
+                               WHERE email_user = %s AND cod_aeroporto = %s \
+                               """
+        cursor.execute(check_interest_query, (user_email, aeroporto))
+        interest_exists = cursor.fetchone()
+
+        if not interest_exists:
+            return jsonify({
+                "error": "Accesso negato: l'utente non ha registrato questo aeroporto come interesse."
+            }), 403 # Status code 403 Forbidden
+
+        select_partenza_query = """
+                                SELECT id, icao_partenza, icao_arrivo, orario_partenza, orario_arrivo
+                                FROM flights
+                                WHERE icao_partenza=%s
+                                ORDER BY orario_partenza DESC
+                                    LIMIT 1 \
+                                """
+        cursor.execute(select_partenza_query, (aeroporto,))
+        partenza_row = cursor.fetchone()
+
+        if partenza_row:
+            risultati_finali["ultimo_volo_in_partenza"] = {
+                "id": partenza_row[0],
+                "icao_partenza": partenza_row[1],
+                "icao_arrivo": partenza_row[2],
+                "orario_partenza" : partenza_row[3],
+                "orario_arrivo" : partenza_row[4]
+            }
+
+        select_arrivo_query = """
+                              SELECT id, icao_partenza, icao_arrivo, orario_partenza, orario_arrivo
+                              FROM flights
+                              WHERE icao_arrivo=%s
+                              ORDER BY orario_arrivo DESC
+                                  LIMIT 1 \
+                              """
+        cursor.execute(select_arrivo_query, (aeroporto,))
+        arrivo_row = cursor.fetchone()
+
+        if arrivo_row:
+            risultati_finali["ultimo_volo_in_arrivo"] = {
+                "id": arrivo_row[0],
+                "icao_partenza": arrivo_row[1],
+                "icao_arrivo": arrivo_row[2],
+                "orario_partenza" : arrivo_row[3],
+                "orario_arrivo" : arrivo_row[4]
+            }
+        return jsonify(risultati_finali), 200
+
+    except Exception as e:
+        print(f"Errore durante l'esecuzione della query: {e}")
+        return jsonify({
+            "error": "Errore interno del server durante il recupero dei voli."
+        }), 500
+    finally:
+        cursor.close()
+        connection.close()
+
+@app.route('/avg_flights', methods=['GET'])
+def get_avg_flights():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    aeroporto = request.args.get('cod_aeroporto')
+    user_email = request.args.get('user_email')
+
+    try:
+        days_num = int(request.args.get('num_giorni'))
+        days_num_str = str(days_num)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Parametro 'num_giorni' mancante o non valido."}), 400
+
+    if not aeroporto or not user_email:
+        return jsonify({"error": "Parametri 'cod_aeroporto' e 'user_email' mancanti."}), 400
+
+    try:
+        check_interest_query = """
+                               SELECT 1
+                               FROM interests
+                               WHERE email_user = %s AND cod_aeroporto = %s \
+                               """
+        cursor.execute(check_interest_query, (user_email, aeroporto))
+        interest_exists = cursor.fetchone()
+
+        if not interest_exists:
+            return jsonify({
+                "error": "Accesso negato: l'utente non ha registrato questo aeroporto come interesse."
+            }), 403
+
+
+        check_avg_partenze_query = f"""
+                          SELECT
+                              COUNT(id) / {days_num_str} AS media_giornaliera
+                          FROM
+                              flights
+                          WHERE
+                              icao_partenza = %s
+                            AND orario_partenza >= DATE_SUB(NOW(), INTERVAL %s DAY);
+                               """
+        cursor.execute(check_avg_partenze_query, (aeroporto, days_num_str))
+        avg_partenze = cursor.fetchone()[0]
+
+        check_avg_arrivi_query = f"""
+                                   SELECT
+                                       COUNT(id) / {days_num_str} AS media_giornaliera
+                                   FROM
+                                       flights
+                                   WHERE
+                                       icao_arrivo = %s
+                                     AND orario_arrivo >= DATE_SUB(NOW(), INTERVAL %s DAY);
+                                   """
+        cursor.execute(check_avg_arrivi_query, (aeroporto, days_num_str))
+        avg_arrivi = cursor.fetchone()[0]
+
+        # 4. RITORNO FORMATTATO
+        return jsonify({
+            "cod_aeroporto": aeroporto,
+            "media_calcolata_su_giorni": days_num,
+            "risultati": {
+                "media_voli_partenza": float(avg_partenze),
+                "media_voli_arrivo": float(avg_arrivi)
+            },
+            "messaggio": "Media dei voli storici calcolata con successo."
+        }), 200
+
+    except Exception as e:
+        print(f"Errore durante l'esecuzione della query: {e}")
+        return jsonify({
+            "error": "Errore interno del server durante il recupero dei voli."
+        }), 500
+    finally:
+        cursor.close()
+        connection.close()
+
+
 
 if __name__ == '__main__':
     init_db()
