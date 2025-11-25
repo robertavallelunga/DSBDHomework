@@ -116,38 +116,71 @@ def cancella_interessi():
 def get_data():
     connection = get_db_connection()
     cursor = connection.cursor()
-    #icao = request.args.get('icao')
 
     try:
+        select_query = "SELECT * FROM interests"
+        cursor.execute(select_query)
+        risultati = cursor.fetchall()
+        interests_list = []
+        for row in risultati:
+            interests_list.append({
+                "id": row[0],
+                "email_user": row[1],
+                "cod_aeroporto": row[2]
+            })
+
+        for user in interests_list:
+            if not check_user_exists_grpc(user['email_user']):
+                cursor.execute("DELETE FROM interests WHERE email_user=%s", (user['email_user'], ))
+                connection.commit()
+                print("Interessi vecchi eliminati!")
+
+        select_query = "SELECT DISTINCT cod_aeroporto FROM interests"
+        cursor.execute(select_query)
+        risultati = cursor.fetchall()
+
+        if not risultati:
+            return jsonify({"message": "Nessun interesse trovato. Nessun dato scaricato.", "count": 0}), 200
+
         token()
-        data = voli_arrivo()
 
-        if not data:
-            return jsonify({
-                "message": "Nessun volo trovato o errore nella chiamata OpenSky (controlla i log del server)."
-            }), 200
+        total_flights_count = 0
 
-        for volo in data:
-            icao_partenza = volo.get('estDepartureAirport')
-            icao_arrivo = volo.get('estArrivalAirport')
-            ora_partenza = datetime.datetime.fromtimestamp(volo.get('firstSeen'))
-            ora_arrivo = datetime.datetime.fromtimestamp(volo.get('lastSeen'))
+        for row in risultati:
+            cod_aeroporto = row[0]
+            data = voli_arrivo(cod_aeroporto)
 
-            valori = (icao_partenza, icao_arrivo, ora_partenza, ora_arrivo)
-            cursor.execute("""
-                           INSERT INTO flights
-                               (icao_partenza, icao_arrivo, orario_partenza, orario_arrivo)
-                           VALUES (%s, %s, %s, %s)
-                           """, valori)
+            if not data:
+                print(f"Nessun volo trovato per {cod_aeroporto}")
+                continue
+
+            total_flights_count += len(data)
+            print(f"Inserimento dati per {cod_aeroporto}...")
+
+            for volo in data:
+                icao_partenza = volo.get('estDepartureAirport')
+                icao_arrivo = volo.get('estArrivalAirport')
+
+                ts_start = volo.get('firstSeen')
+                ts_end = volo.get('lastSeen')
+
+                ora_partenza = datetime.datetime.fromtimestamp(ts_start) if ts_start else None
+                ora_arrivo = datetime.datetime.fromtimestamp(ts_end) if ts_end else None
+
+                valori = (icao_partenza, icao_arrivo, ora_partenza, ora_arrivo)
+                cursor.execute("""
+                               INSERT INTO flights
+                                   (icao_partenza, icao_arrivo, orario_partenza, orario_arrivo)
+                               VALUES (%s, %s, %s, %s)
+                               """, valori)
             connection.commit()
+        return jsonify({"message": "Dati recuperati e salvati con successo", "count": total_flights_count}), 200
+
     except Exception as e:
-        # Questo stampa l'errore REALE nel terminale dove hai lanciato Flask
-        print(f"!!! ERRORE CRITICO IN GET_DATA: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({
-            "error": "Errore interno del server durante il fetch dei dati."
-        }), 500
+        print(f"Errore durante l'esecuzione della query: {e}")
+        return jsonify({"error": f"Errore interno del server: {str(e)}"}), 500
     finally:
         cursor.close()
         connection.close()
