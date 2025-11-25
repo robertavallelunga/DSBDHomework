@@ -57,6 +57,17 @@ def init_db():
                            )
                        """)
         conn.commit()
+
+        # Creazione Tabella Voli
+        cursor.execute("""
+                       CREATE TABLE IF NOT EXISTS flights (
+                            id INT AUTO_INCREMENT PRIMARY KEY,        
+                           icao_partenza VARCHAR(10),
+                           icao_arrivo VARCHAR(10),
+                           orario_partenza DATETIME,
+                           orario_arrivo DATETIME)
+                       """)
+        conn.commit()
         cursor.close()
         conn.close()
         print("Tabella 'interests' inizializzata con successo.")

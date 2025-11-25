@@ -1,9 +1,11 @@
+import datetime
 import os
 import grpc
 from flask import Flask, request, jsonify
 from database import init_db, get_db_connection
 import user_pb2
 import user_pb2_grpc
+from opensky import token, voli_arrivo
 
 app = Flask(__name__)
 
@@ -51,7 +53,7 @@ def add_interest():
         cursor.close()
         conn.close()
 
-@app.route('/view', methods=['GET'])
+@app.route('/view_interests', methods=['GET'])
 def visualizza_interessi():
     connection = get_db_connection()
     cursor = connection.cursor()
@@ -109,6 +111,77 @@ def cancella_interessi():
     finally:
         cursor.close()
         connection.close()
+
+@app.route('/get_data', methods=['GET'])
+def get_data():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    #icao = request.args.get('icao')
+
+    try:
+        token()
+        data = voli_arrivo()
+
+        if not data:
+            return jsonify({
+                "message": "Nessun volo trovato o errore nella chiamata OpenSky (controlla i log del server)."
+            }), 200
+
+        for volo in data:
+            icao_partenza = volo.get('estDepartureAirport')
+            icao_arrivo = volo.get('estArrivalAirport')
+            ora_partenza = datetime.datetime.fromtimestamp(volo.get('firstSeen'))
+            ora_arrivo = datetime.datetime.fromtimestamp(volo.get('lastSeen'))
+
+            valori = (icao_partenza, icao_arrivo, ora_partenza, ora_arrivo)
+            cursor.execute("""
+                           INSERT INTO flights
+                               (icao_partenza, icao_arrivo, orario_partenza, orario_arrivo)
+                           VALUES (%s, %s, %s, %s)
+                           """, valori)
+            connection.commit()
+    except Exception as e:
+        # Questo stampa l'errore REALE nel terminale dove hai lanciato Flask
+        print(f"!!! ERRORE CRITICO IN GET_DATA: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": "Errore interno del server durante il fetch dei dati."
+        }), 500
+    finally:
+        cursor.close()
+        connection.close()
+
+@app.route('/view_flights', methods=['GET'])
+def visualizza_voli():
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    aeroporto = request.args.get('cod_aeroporto')
+
+    try:
+        select_query = "SELECT * FROM flights WHERE icao_partenza=%s OR icao_arrivo=%s"
+        cursor.execute(select_query, (aeroporto,aeroporto))
+        risultati = cursor.fetchall()
+        flights_list = []
+        for row in risultati:
+            flights_list.append({
+                "id": row[0],
+                "icao_partenza": row[1],
+                "icao_arrivo": row[2],
+                "orario_partenza" : row[3],
+                "orario_arrivo" : row[4]
+            })
+        return jsonify(flights_list), 200
+    except Exception as e:
+        # Gestione degli errori di database
+        print(f"Errore durante l'esecuzione della query: {e}")
+        return jsonify({
+            "error": "Errore interno del server durante il recupero dei voli."
+        }), 500
+    finally:
+        cursor.close()
+        connection.close()
+
 
 if __name__ == '__main__':
     init_db()

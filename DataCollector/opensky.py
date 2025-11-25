@@ -42,7 +42,7 @@ def token():
         # Gestione di errori di connessione o HTTP
         print(f"Errore di richiesta: {e}")
 
-def voli():
+def voli_arrivo():
     global TOKEN
     URL = "https://opensky-network.org/api/flights/arrival"
     headers = {
@@ -68,15 +68,17 @@ def voli():
         data = response.json()
 
         print("\n Dati recuperati con successo:")
-        print(json.dumps(data, indent=4))
+        return data
 
     except requests.exceptions.RequestException as e:
         # Gestione degli errori di rete o di stato (4xx/5xx)
         print(f"\nErrore durante la richiesta API: {e}")
         if response.status_code == 401:
             print("Verifica che il tuo TOKEN sia corretto e valido.")
+            return []
 
     except json.JSONDecodeError:
         # Gestione degli errori di decodifica JSON
         print("\nErrore nella decodifica JSON della risposta.")
         print("Contenuto della risposta:\n", response.text)
+        return []
