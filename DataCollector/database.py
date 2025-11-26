@@ -60,13 +60,20 @@ def init_db():
 
         # Creazione Tabella Voli
         cursor.execute("""
-                       CREATE TABLE IF NOT EXISTS flights (
-                            id INT AUTO_INCREMENT PRIMARY KEY,        
-                           icao_partenza VARCHAR(10),
-                           icao_arrivo VARCHAR(10),
-                           orario_partenza DATETIME,
-                           orario_arrivo DATETIME)
-                       """)
+               CREATE TABLE IF NOT EXISTS flights (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    icao_24 VARCHAR(20) NOT NULL,
+                   icao_partenza VARCHAR(10),
+                   icao_arrivo VARCHAR(10),
+                   orario_partenza DATETIME NOT NULL,
+                   orario_arrivo DATETIME,
+                   
+                   UNIQUE KEY unique_aircraft_flight_start (
+                        icao_24,
+                        orario_partenza
+                                                           )
+                   )
+               """)
         conn.commit()
         cursor.close()
         conn.close()

@@ -7,6 +7,8 @@ TOKEN = ""
 def token():
     CLIENT_ID = "zantoniix-api-client"
     CLIENT_SECRET = "RLDx6qz7C0aWHWtsVViPzmDyejC05t6j"
+    #{"clientId":"ro30by-api-client","clientSecret":"XIgDS7tLe7dajKblb7ddINgfYK0g0G8L"}
+
     global TOKEN
 
     URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
