@@ -26,11 +26,14 @@ def register_user():
     try:
         cursor.execute("SELECT * FROM requestID WHERE messageID = %s", (messageID, ))
         if cursor.fetchone():
-            response="Utente già registrato"
+            response="Richiesta elaborata con successo"
             return jsonify({"message": f"Richiesta già elaborata, esito richiesta precendente: {response}"}), 200
 
         cursor.execute("SELECT * FROM users WHERE email = %s", (email, ))
         if cursor.fetchone():
+            response="Utente già registrato"
+            cursor.execute("INSERT INTO requestID (messageID, response) VALUES (%s, %s)", (messageID,response))
+            conn.commit()
             return jsonify({"message": "User esistente"}), 200
 
         response="Richiesta elaborata con successo"
