@@ -55,6 +55,13 @@ def init_db():
                            )
                        """)
         conn.commit()
+        cursor.execute("""
+                       CREATE TABLE IF NOT EXISTS requestID (
+                           messageID VARCHAR(100) PRIMARY KEY,
+                           response VARCHAR(255)
+                           )
+                       """)
+        conn.commit()
         cursor.close()
         conn.close()
         print("Tabella 'users' inizializzata con successo.")

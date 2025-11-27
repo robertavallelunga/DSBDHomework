@@ -8,19 +8,38 @@ app = Flask(__name__)
 @app.route('/new', methods=['POST'])
 def register_user():
     data = request.json
-    email = data.get('email')
+    required_fields = ['email', 'nome', 'cognome', 'messageID']
 
+    # Controllo dei parametri mancanti
+    missing_fields = [field for field in required_fields if not data or field not in data]
+
+    if missing_fields:
+        return jsonify({
+            "error": "Parametri mancanti nella richiesta",
+            "missing_fields": missing_fields
+        }), 400
+
+    email = data.get('email')
+    messageID=data.get('messageID')
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
+        cursor.execute("SELECT * FROM requestID WHERE messageID = %s", (messageID, ))
+        if cursor.fetchone():
+            response="Utente già registrato"
+            return jsonify({"message": f"Richiesta già elaborata, esito richiesta precendente: {response}"}), 200
+
         cursor.execute("SELECT * FROM users WHERE email = %s", (email, ))
         if cursor.fetchone():
             return jsonify({"message": "User esistente"}), 200
 
+        response="Richiesta elaborata con successo"
+        cursor.execute("INSERT INTO requestID (messageID, response) VALUES (%s, %s)", (messageID,response))
         cursor.execute("INSERT INTO users (email, nome, cognome) VALUES (%s, %s, %s)", (email, data.get('nome'), data.get('cognome')))
         conn.commit()
         return jsonify({"message": "User registrato"}), 201
     except Exception as e:
+        conn.rollback()
         return jsonify({"error": str(e)}), 500
     finally:
         cursor.close()
