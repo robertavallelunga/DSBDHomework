@@ -7,7 +7,7 @@ from flask import Flask, request, jsonify
 from database import init_db, get_db_connection
 import user_pb2
 import user_pb2_grpc
-from opensky import token, voli_arrivo
+from opensky import token, voli_arrivo, voli_partenza
 
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
@@ -160,7 +160,7 @@ def get_data():
             data = voli_arrivo(cod_aeroporto)
 
             if not data:
-                print(f"Nessun volo trovato per {cod_aeroporto}")
+                print(f"Nessun volo in arrivo trovato per {cod_aeroporto}")
                 continue
 
             total_flights_count += len(data)
@@ -185,6 +185,39 @@ def get_data():
                                    ON DUPLICATE KEY UPDATE
                                                         icao_arrivo = VALUES(icao_arrivo),
                                                         orario_arrivo = VALUES(orario_arrivo)
+                               """, valori)
+            connection.commit()
+
+        for row in risultati:
+            cod_aeroporto = row[0]
+            data = voli_partenza(cod_aeroporto)
+
+            if not data:
+                print(f"Nessun volo in partenza trovato per {cod_aeroporto}")
+                continue
+
+            total_flights_count += len(data)
+            print(f"Inserimento dati per {cod_aeroporto}...")
+
+            for volo in data:
+                icao_24=volo.get('icao24')
+                icao_partenza = volo.get('estDepartureAirport')
+                icao_arrivo = volo.get('estArrivalAirport')
+
+                ts_start = volo.get('firstSeen')
+                ts_end = volo.get('lastSeen')
+
+                ora_partenza = datetime.datetime.fromtimestamp(ts_start) if ts_start else None
+                ora_arrivo = datetime.datetime.fromtimestamp(ts_end) if ts_end else None
+
+                valori = (icao_24,icao_partenza, icao_arrivo, ora_partenza, ora_arrivo)
+                cursor.execute("""
+                               INSERT INTO flights
+                                   (icao_24,icao_partenza, icao_arrivo, orario_partenza, orario_arrivo)
+                               VALUES (%s,%s, %s, %s, %s)
+                                   ON DUPLICATE KEY UPDATE
+                                                        icao_arrivo = VALUES(icao_arrivo),
+                                                        orario_partenza = VALUES(orario_partenza)
                                """, valori)
             connection.commit()
         return jsonify({"message": "Dati recuperati e salvati con successo", "count": total_flights_count}), 200
@@ -262,6 +295,39 @@ def get_data_scheduler():
                                """, valori)
             connection.commit()
 
+        for row in risultati:
+            cod_aeroporto = row[0]
+            data = voli_partenza(cod_aeroporto)
+
+            if not data:
+                print(f"Nessun volo trovato per {cod_aeroporto}")
+                continue
+
+            total_flights_count += len(data)
+            print(f"Inserimento dati per {cod_aeroporto}...")
+
+            for volo in data:
+                icao_24=volo.get('icao24')
+                icao_partenza = volo.get('estDepartureAirport')
+                icao_arrivo = volo.get('estArrivalAirport')
+
+                ts_start = volo.get('firstSeen')
+                ts_end = volo.get('lastSeen')
+
+                ora_partenza = datetime.datetime.fromtimestamp(ts_start) if ts_start else None
+                ora_arrivo = datetime.datetime.fromtimestamp(ts_end) if ts_end else None
+
+                valori = (icao_24,icao_partenza, icao_arrivo, ora_partenza, ora_arrivo)
+                cursor.execute("""
+                               INSERT INTO flights
+                                   (icao_24,icao_partenza, icao_arrivo, orario_partenza, orario_arrivo)
+                               VALUES (%s,%s, %s, %s, %s)
+                                   ON DUPLICATE KEY UPDATE
+                                                        icao_arrivo = VALUES(icao_arrivo),
+                                                        orario_partenza = VALUES(orario_partenza)
+                               """, valori)
+            connection.commit()
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -315,6 +381,9 @@ def get_last_flights():
         "ultimo_volo_in_partenza": None,
         "ultimo_volo_in_arrivo": None
     }
+
+    if not check_user_exists_grpc(user_email):
+        return jsonify({"error": "User non trovato nel database"}), 404
 
     try:
         check_interest_query = """
@@ -396,6 +465,9 @@ def get_avg_flights():
     if not aeroporto or not user_email:
         return jsonify({"error": "Parametri 'cod_aeroporto' e 'user_email' mancanti."}), 400
 
+    if not check_user_exists_grpc(user_email):
+        return jsonify({"error": "User non trovato nel database"}), 404
+
     try:
         check_interest_query = """
                                SELECT 1
@@ -461,7 +533,7 @@ def start_scheduler():
         func=get_data_scheduler,
         trigger='interval',
         hours=12,
-        #minutes= 2,
+        #minutes=2,
         id='volo_data_fetcher',  # ID univoco per il job
         name='Recupero Dati Voli OpenSky',
         replace_existing=True

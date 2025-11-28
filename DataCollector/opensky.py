@@ -71,3 +71,40 @@ def voli_arrivo(icao):
         print("\nErrore nella decodifica JSON della risposta.")
         print("Contenuto della risposta:\n", response.text)
         return []
+
+def voli_partenza(icao):
+    global TOKEN
+    URL = "https://opensky-network.org/api/flights/departure"
+    headers = {
+        "Authorization": f"Bearer {TOKEN}",
+        "Accept": "application/json"
+    }
+
+    end_time = int(time.time())
+    begin_time = end_time - 43200
+
+    params = {
+        "airport": f"{icao}",
+        "begin": begin_time,
+        "end": end_time
+    }
+
+    try:
+        print(f"Effettuando una richiesta a: {URL}...")
+
+        response = requests.get(URL, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        print("\n Dati recuperati con successo:")
+        return data
+
+    except requests.exceptions.RequestException as e:
+        print(f"\nErrore durante la richiesta API: {e}")
+        if response.status_code == 401:
+            print("Verifica che il tuo TOKEN sia corretto e valido.")
+            return []
+
+    except json.JSONDecodeError:
+        print("\nErrore nella decodifica JSON della risposta.")
+        print("Contenuto della risposta:\n", response.text)
+        return []
