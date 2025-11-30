@@ -27,7 +27,9 @@ services:
 
 
   data:   #gRPC client
-    build: ./DataCollector
+    build:
+      context: .
+      dockerfile: DataCollector/Dockerfile
     container_name: dataCollector
     depends_on:
       - dataDB
@@ -45,7 +47,9 @@ services:
 
 
   user:   #gRPC server
-    build: ./UserManager
+    build:
+      context: .
+      dockerfile: UserManager/Dockerfile
     container_name: userManager
     depends_on:
       - userDB
