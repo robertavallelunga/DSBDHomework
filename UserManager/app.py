@@ -1,4 +1,3 @@
-import os
 import threading
 from flask import Flask, request, jsonify
 from database import get_db_connection, init_db
@@ -59,7 +58,7 @@ def remove_user():
     cursor = connection.cursor()
     try:
         cursor.execute("DELETE FROM users WHERE email = %s", (email,))
-        # L'attributo rowcount restituisce il numero di righe modificate dall'ultima query, controllo quante cose sono state cancellate
+        # L'attributo rowcount restituisce il numero di righe modificate dall'ultima query, controllo quante ne sono state cancellate
         righe_cancellate = cursor.rowcount
         connection.commit()
         if righe_cancellate > 0:

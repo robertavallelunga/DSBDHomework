@@ -22,7 +22,7 @@ def get_db_connection():
         retries = 5
         while retries > 0:
             try:
-                # Creiamo la piscina con 5 connessioni pronte all'uso
+                # Prova di connessione con 5 tentativi
                 connection_pool = mysql.connector.pooling.MySQLConnectionPool(**DB_CONFIG)
                 break
             except mysql.connector.Error as err:
@@ -55,6 +55,8 @@ def init_db():
                            )
                        """)
         conn.commit()
+
+        # Creazione tabella per le richieste di registrazione
         cursor.execute("""
                        CREATE TABLE IF NOT EXISTS requestID (
                            messageID VARCHAR(100) PRIMARY KEY,
@@ -64,6 +66,6 @@ def init_db():
         conn.commit()
         cursor.close()
         conn.close()
-        print("Tabella 'users' inizializzata con successo.")
+        print("Tabelle 'users' e 'requestID' inizializzate con successo.")
     except Exception as e:
         print(f"Errore durante l'init del DB: {e}")

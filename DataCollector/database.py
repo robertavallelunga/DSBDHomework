@@ -5,7 +5,6 @@ import mysql.connector
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
     'user': 'root',
-    #'port': '3310',
     'password': os.getenv('MYSQL_ROOT_PASSWORD', 'ermenegildo'), # password dal compose
     'database': os.getenv('DB_NAME', 'mysqldataDB'),
     'pool_name':"data_pool",
@@ -22,7 +21,7 @@ def get_db_connection():
         retries = 5
         while retries > 0:
             try:
-                # Creiamo la piscina con 5 connessioni pronte all'uso
+                # Prova di connessione con 5 tentativi
                 connection_pool = mysql.connector.pooling.MySQLConnectionPool(**DB_CONFIG)
                 break
             except mysql.connector.Error as err:

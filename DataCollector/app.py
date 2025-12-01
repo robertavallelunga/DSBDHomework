@@ -2,7 +2,6 @@ import datetime
 import os
 import grpc
 import time
-import threading
 from flask import Flask, request, jsonify
 from database import init_db, get_db_connection
 import user_pb2
@@ -38,7 +37,7 @@ def add_interest():
     data = request.json
     email = data.get('email')
     airport = data.get('airport')
-#Controllo valori passati alla richiesta
+    #Controllo valori passati alla richiesta
     if not email or not airport:
         return jsonify({
             "error": "Dati mancanti o formato non valido: 'email' (string) e 'airports' sono richiesti."
@@ -100,7 +99,7 @@ def cancella_interessi():
         data = request.json
         user_email = data.get('email')
         cod_aeroporto = data.get('airport')
-    # 1. Verifica gRPC
+        # 1. Verifica gRPC
         if not check_user_exists_grpc(user_email):
           return jsonify({"error": "User non trovato nel database"}), 404
 
@@ -174,6 +173,7 @@ def get_data():
                 ts_start = volo.get('firstSeen')
                 ts_end = volo.get('lastSeen')
 
+                # Conversione dell'ora dal timestamp ritornato dall'API
                 ora_partenza = datetime.datetime.fromtimestamp(ts_start) if ts_start else None
                 ora_arrivo = datetime.datetime.fromtimestamp(ts_end) if ts_end else None
 
@@ -207,6 +207,7 @@ def get_data():
                 ts_start = volo.get('firstSeen')
                 ts_end = volo.get('lastSeen')
 
+                # Conversione dell'ora dal timestamp ritornato dall'API (come per gli arrivi)
                 ora_partenza = datetime.datetime.fromtimestamp(ts_start) if ts_start else None
                 ora_arrivo = datetime.datetime.fromtimestamp(ts_end) if ts_end else None
 
@@ -397,7 +398,7 @@ def get_last_flights():
         if not interest_exists:
             return jsonify({
                 "error": "Accesso negato: l'utente non ha registrato questo aeroporto come interesse."
-            }), 403 # Status code 403 Forbidden
+            }), 403
 
         select_partenza_query = """
                                 SELECT id,icao_24, icao_partenza, icao_arrivo, orario_partenza, orario_arrivo
