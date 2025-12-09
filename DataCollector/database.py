@@ -52,7 +52,10 @@ def init_db():
                            id INT AUTO_INCREMENT PRIMARY KEY,
                            email_user VARCHAR(255),
                            cod_aeroporto VARCHAR(10),
-                           UNIQUE (email_user, cod_aeroporto)
+                           highValue INTEGER,
+                           lowValue INTEGER,
+                           UNIQUE (email_user, cod_aeroporto),
+                           CHECK (highValue > lowValue)
                            )
                        """)
         conn.commit()

@@ -37,10 +37,18 @@ def add_interest():
     data = request.json
     email = data.get('email')
     airport = data.get('airport')
+    highValue = data.get('highValue')
+    lowValue = data.get('lowValue')
+
     #Controllo valori passati alla richiesta
     if not email or not airport:
         return jsonify({
             "error": "Dati mancanti o formato non valido: 'email' (string) e 'airports' sono richiesti."
+        }), 400
+
+    if highValue and lowValue and int(highValue) < int(lowValue):
+        return jsonify({
+            "error": "Il valore High-value minore di Low-value"
         }), 400
 
     # 1. Verifica gRPC
@@ -51,7 +59,7 @@ def add_interest():
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO interests (email_user, cod_aeroporto) VALUES (%s, %s)", (email, airport))
+        cursor.execute("INSERT INTO interests (email_user, cod_aeroporto,highValue,lowValue) VALUES (%s, %s,%s,%s)", (email, airport, highValue,lowValue))
         conn.commit()
         return jsonify({"message": "Aeroporto aggiunto"}), 201
     except Exception as e:
@@ -70,7 +78,7 @@ def visualizza_interessi():
     if not check_user_exists_grpc(user_email):
         return jsonify({"error": "User non trovato nel database"}), 404
     try:
-        select_query = "SELECT id,email_user,cod_aeroporto FROM interests WHERE email_user=%s"
+        select_query = "SELECT id,email_user,cod_aeroporto,highValue,lowValue FROM interests WHERE email_user=%s"
         cursor.execute(select_query, (user_email,))
         risultati = cursor.fetchall()
         interessi_list = []
@@ -78,7 +86,9 @@ def visualizza_interessi():
             interessi_list.append({
                 "id": row[0],
                 "email_user": row[1],
-                "cod_aeroporto": row[2]
+                "cod_aeroporto": row[2],
+                "highValue": row[3],
+                "lowValue": row[4]
             })
         return jsonify(interessi_list), 200
     except Exception as e:
@@ -523,6 +533,59 @@ def get_avg_flights():
         return jsonify({
             "error": "Errore interno del server durante il recupero dei voli."
         }), 500
+    finally:
+        cursor.close()
+        connection.close()
+
+@app.route('/mod_pref', methods=['POST'])
+def modify_preference():
+    data = request.json
+    email = data.get('email')
+    airport = data.get('airport')
+    highValue = data.get('highValue')
+    lowValue = data.get('lowValue')
+
+    if not email or not airport:
+     return jsonify({
+            "error": "Dati mancanti o formato non valido: 'email' e 'airports' sono richiesti."
+        }), 400
+
+    if not check_user_exists_grpc(email):
+        return jsonify({"error": "User non trovato nel database"}), 404
+
+    if not highValue and not lowValue:
+        return jsonify({
+            "error": "Dati mancanti: 'highValue' (string) e 'lowValue' sono richiesti."
+        }), 400
+
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        fields = []
+        values = []
+        #Creo i parametri da passare all'update, si è fatto il controllo sopra per evitare se entrambi mancanti la connessione al DB inutile
+        if highValue is not None:
+            fields.append('highValue = %s')
+            values.append(highValue)
+
+        if lowValue is not None:
+            fields.append("lowValue = %s")
+            values.append(lowValue)
+
+        values.extend([email, airport])
+        query = f"UPDATE interests SET {', '.join(fields)} WHERE email_user = %s AND cod_aeroporto = %s"
+        cursor.execute(query, tuple(values))
+        connection.commit()
+        return jsonify({"message": "Preferenza aggiornata"}), 201
+    except Exception as e:
+            if e.errno == 3819:  # codice errore per CHECK constraint
+                connection.rollback()
+                return jsonify({"error": "highValue deve essere maggiore di lowValue"}), 400
+            else:
+                connection.rollback()
+                return jsonify({"error": f"Errore database: {e.msg}"}), 500
     finally:
         cursor.close()
         connection.close()
