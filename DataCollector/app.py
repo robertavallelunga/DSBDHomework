@@ -1,5 +1,7 @@
 import datetime
 import os
+from contextlib import nullcontext
+
 import grpc
 import time
 from flask import Flask, request, jsonify
@@ -59,6 +61,12 @@ def add_interest():
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
+#I valori negativi vengono considerati come nulli (scelta di priorità sulla priorità del volo non presa)
+        if highValue is not None and int(highValue) < 0:
+            highValue = None
+        if lowValue is not None and int(lowValue) < 0:
+            lowValue = None
+
         cursor.execute("INSERT INTO interests (email_user, cod_aeroporto,highValue,lowValue) VALUES (%s, %s,%s,%s)", (email, airport, highValue,lowValue))
         conn.commit()
         return jsonify({"message": "Aeroporto aggiunto"}), 201
@@ -555,7 +563,7 @@ def modify_preference():
 
     if not highValue and not lowValue:
         return jsonify({
-            "error": "Dati mancanti: 'highValue' (string) e 'lowValue' sono richiesti."
+            "error": "Dati mancanti: 'highValue' e 'lowValue' sono richiesti."
         }), 400
 
 
@@ -568,11 +576,16 @@ def modify_preference():
         #Creo i parametri da passare all'update, si è fatto il controllo sopra per evitare se entrambi mancanti la connessione al DB inutile
         if highValue is not None:
             fields.append('highValue = %s')
-            values.append(highValue)
-
+            if int(highValue) <= 0:
+                values.append(None)
+            else:
+                values.append(highValue)
         if lowValue is not None:
             fields.append("lowValue = %s")
-            values.append(lowValue)
+            if int(lowValue) <= 0:
+                values.append(None)
+            else:
+                values.append(lowValue)
 
         values.extend([email, airport])
         query = f"UPDATE interests SET {', '.join(fields)} WHERE email_user = %s AND cod_aeroporto = %s"

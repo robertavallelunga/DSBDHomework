@@ -55,7 +55,7 @@ def init_db():
                            highValue INTEGER,
                            lowValue INTEGER,
                            UNIQUE (email_user, cod_aeroporto),
-                           CHECK (highValue > lowValue)
+                           CHECK (highValue IS NULL OR highValue > lowValue)
                            )
                        """)
         conn.commit()
