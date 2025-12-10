@@ -1,7 +1,5 @@
 import datetime
 import os
-from contextlib import nullcontext
-
 import grpc
 import time
 from flask import Flask, request, jsonify
@@ -9,6 +7,7 @@ from database import init_db, get_db_connection
 import user_pb2
 import user_pb2_grpc
 from opensky import token, voli_arrivo, voli_partenza
+from circuitBreaker import CircuitBreaker
 
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
@@ -21,6 +20,8 @@ app = Flask(__name__)
 
 GRPC_HOST=os.getenv("TARGET_GRPC_HOST", "userManager")
 GRPC_PORT=os.getenv("TARGET_GRPC_PORT", 50051)
+
+circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
 
 def check_user_exists_grpc(email):
     """Chiama User Manager via gRPC per verificare l'utente"""
@@ -174,16 +175,19 @@ def get_data():
 
         for row in risultati:
             cod_aeroporto = row[0]
-            data = voli_arrivo(cod_aeroporto)
+            data_arrivo = []
+            try:
+                # Il CB chiama voli_arrivo(cod_aeroporto)
+                data_arrivo = circuit_breaker.call(voli_arrivo, cod_aeroporto)
+            except Exception as e:
+                print(f"Salto arrivi per {cod_aeroporto} causa Circuit Breaker/Errore: {e}")
+                # Continuiamo l'esecuzione, data_arrivo resta vuoto
 
-            if not data:
-                print(f"Nessun volo in arrivo trovato per {cod_aeroporto}")
-                continue
+            if data_arrivo:
+                total_flights_count += len(data_arrivo)
+                print(f"Inserimento dati arrivi per {cod_aeroporto}...")
 
-            total_flights_count += len(data)
-            print(f"Inserimento dati per {cod_aeroporto}...")
-
-            for volo in data:
+            for volo in data_arrivo:
                 icao_24= volo.get('icao24')
                 icao_partenza = volo.get('estDepartureAirport')
                 icao_arrivo = volo.get('estArrivalAirport')
@@ -208,16 +212,17 @@ def get_data():
 
         for row in risultati:
             cod_aeroporto = row[0]
-            data = voli_partenza(cod_aeroporto)
+            data_partenza = []
+            try:
+                data_partenza = circuit_breaker.call(voli_partenza, cod_aeroporto)
+            except Exception as e:
+                print(f"Salto partenze per {cod_aeroporto} causa Circuit Breaker/Errore: {e}")
 
-            if not data:
-                print(f"Nessun volo in partenza trovato per {cod_aeroporto}")
-                continue
+            if data_partenza:
+                total_flights_count += len(data_partenza)
+                print(f"Inserimento dati partenze per {cod_aeroporto}...")
 
-            total_flights_count += len(data)
-            print(f"Inserimento dati per {cod_aeroporto}...")
-
-            for volo in data:
+            for volo in data_partenza:
                 icao_24=volo.get('icao24')
                 icao_partenza = volo.get('estDepartureAirport')
                 icao_arrivo = volo.get('estArrivalAirport')
@@ -283,16 +288,18 @@ def get_data_scheduler():
 
         for row in risultati:
             cod_aeroporto = row[0]
-            data = voli_arrivo(cod_aeroporto)
+            data_arrivo = []
+            try:
+                # Il CB chiama voli_arrivo
+                data_arrivo = circuit_breaker.call(voli_arrivo, cod_aeroporto)
+            except Exception as e:
+                print(f"Salto arrivi per {cod_aeroporto} causa Circuit Breaker/Errore: {e}")
 
-            if not data:
-                print(f"Nessun volo trovato per {cod_aeroporto}")
-                continue
+            if data_arrivo:
+                total_flights_count += len(data_arrivo)
+                print(f"Inserimento dati arrivi per {cod_aeroporto}...")
 
-            total_flights_count += len(data)
-            print(f"Inserimento dati per {cod_aeroporto}...")
-
-            for volo in data:
+            for volo in data_arrivo:
                 icao_24=volo.get('icao24')
                 icao_partenza = volo.get('estDepartureAirport')
                 icao_arrivo = volo.get('estArrivalAirport')
@@ -316,16 +323,17 @@ def get_data_scheduler():
 
         for row in risultati:
             cod_aeroporto = row[0]
-            data = voli_partenza(cod_aeroporto)
+            data_partenza = []
+            try:
+                data_partenza = circuit_breaker.call(voli_partenza, cod_aeroporto)
+            except Exception as e:
+                print(f"Salto partenze per {cod_aeroporto} causa Circuit Breaker/Errore: {e}")
 
-            if not data:
-                print(f"Nessun volo trovato per {cod_aeroporto}")
-                continue
+            if data_partenza:
+                total_flights_count += len(data_partenza)
+                print(f"Inserimento dati partenze per {cod_aeroporto}...")
 
-            total_flights_count += len(data)
-            print(f"Inserimento dati per {cod_aeroporto}...")
-
-            for volo in data:
+            for volo in data_partenza:
                 icao_24=volo.get('icao24')
                 icao_partenza = volo.get('estDepartureAirport')
                 icao_arrivo = volo.get('estArrivalAirport')

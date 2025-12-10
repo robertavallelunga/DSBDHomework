@@ -22,6 +22,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true' # Crea automaticamente i topic
+      KAFKA_LOG4J_ROOT_LOGLEVEL: 'WARN'
     volumes:
       - ./kafka-data:/var/lib/kafka/data
     networks:
@@ -69,6 +70,7 @@ services:
       - DB_HOST=dataDB
       - DB_NAME=mysqldataDB
       - MYSQL_ROOT_PASSWORD=ermenegildo
+      - PYTHONUNBUFFERED=1
     networks:
       - dataNet
       - internalNet

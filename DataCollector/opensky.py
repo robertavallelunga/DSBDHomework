@@ -1,6 +1,5 @@
 import time
 import requests
-import json
 
 TOKEN = ""
 
@@ -37,6 +36,7 @@ def token():
 
 def voli_arrivo(icao):
     global TOKEN
+    # raise requests.exceptions.RequestException("Simulazione API Down per Test")      TEST CIRCUIT BREAKER
     URL = "https://opensky-network.org/api/flights/arrival"
     headers = {
         "Authorization": f"Bearer {TOKEN}",
@@ -52,28 +52,17 @@ def voli_arrivo(icao):
         "end": end_time
     }
 
-    try:
-        print(f"Effettuando una richiesta a: {URL}...")
+    print(f"Effettuando una richiesta a: {URL}...")
 
-        response = requests.get(URL, headers=headers, params=params)
-        response.raise_for_status()
-        data = response.json()
-        print("\n Dati recuperati con successo:")
-        return data
-
-    except requests.exceptions.RequestException as e:
-        print(f"\nErrore durante la richiesta API: {e}")
-        if response.status_code == 401:
-            print("Verifica che il tuo TOKEN sia corretto e valido.")
-            return []
-
-    except json.JSONDecodeError:
-        print("\nErrore nella decodifica JSON della risposta.")
-        print("Contenuto della risposta:\n", response.text)
-        return []
+    response = requests.get(URL, headers=headers, params=params)
+    response.raise_for_status()
+    data = response.json()
+    print("\n Dati recuperati con successo:")
+    return data
 
 def voli_partenza(icao):
     global TOKEN
+    # raise requests.exceptions.RequestException("Simulazione API Down per Test")   TEST CIRCUIT BREAKER
     URL = "https://opensky-network.org/api/flights/departure"
     headers = {
         "Authorization": f"Bearer {TOKEN}",
@@ -89,22 +78,10 @@ def voli_partenza(icao):
         "end": end_time
     }
 
-    try:
-        print(f"Effettuando una richiesta a: {URL}...")
+    print(f"Effettuando una richiesta a: {URL}...")
 
-        response = requests.get(URL, headers=headers, params=params)
-        response.raise_for_status()
-        data = response.json()
-        print("\n Dati recuperati con successo:")
-        return data
-
-    except requests.exceptions.RequestException as e:
-        print(f"\nErrore durante la richiesta API: {e}")
-        if response.status_code == 401:
-            print("Verifica che il tuo TOKEN sia corretto e valido.")
-            return []
-
-    except json.JSONDecodeError:
-        print("\nErrore nella decodifica JSON della risposta.")
-        print("Contenuto della risposta:\n", response.text)
-        return []
+    response = requests.get(URL, headers=headers, params=params)
+    response.raise_for_status()
+    data = response.json()
+    print("\n Dati recuperati con successo:")
+    return data
