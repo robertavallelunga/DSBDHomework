@@ -44,6 +44,43 @@ services:
       - dataNet
       - userNet
 
+  alertsystem:
+    build:
+      context: .
+      dockerfile: AlertSystem/Dockerfile
+    container_name: alertSystem
+    depends_on:
+      - kafka #Dipende da Kafka per consumare messaggi
+      - user #UserManager per gli utenti
+    environment:
+      - KAFKA_HOST=kafka:9092
+      - INPUT_TOPIC=to-alert-system
+      - OUTPUT_TOPIC=to-notifier
+      - TARGET_GRPC_HOST=userManager
+      - TARGET_GRPC_PORT=50051 #Per chiamare l'UserManager via gRPC
+      - PYTHONUNBUFFERED=1
+    networks:
+      - internalNet
+
+  alertnotifier:
+    build:
+      context: .
+      dockerfile: AlertNotifierSystem/Dockerfile
+    container_name: alertNotifier
+    depends_on:
+      - kafka #Solo da kafka per ricevere i messaggi di allerta
+    environment:
+      - KAFKA_HOST=kafka:9092
+      - INPUT_TOPIC=to-notifier
+      - PYTHONUNBUFFERED=1
+      - SMTP_HOST=smtp.gmail.com   # Server SMTP di Gmail
+      - SMTP_PORT=587              # Porta standard per TLS/STARTTLS
+      - SMTP_USER=your_email@gmail.com # L'indirizzo e-mail mittente
+      - SMTP_PASSWORD=your_app_password # La password/App Password generata per l'app
+      - SENDER_NAME=DSBD Alert System # Nome visualizzato come mittente
+    networks:
+      - internalNet
+
   dataDB:
     image: mysql:latest
     container_name: dataDB
@@ -77,8 +114,9 @@ services:
     container_name: dataCollector
     depends_on:
       - dataDB
-    ports:
-      - "5002:5000"
+      - kafka
+    #ports:
+    #  - "5002:5000"
     environment:
       - TARGET_GRPC_HOST=userManager
       - TARGET_GRPC_PORT=50051
@@ -97,8 +135,8 @@ services:
     container_name: userManager
     depends_on:
       - userDB
-    ports:
-      - "5001:5000"
+    #ports:
+    #  - "5001:5000"
     environment:
       - GRPC_PORT=50051
       - DB_HOST=userDB

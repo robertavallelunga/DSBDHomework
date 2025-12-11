@@ -1,0 +1,2 @@
+kafka-python
+smtplib #Per l'invio delle mail

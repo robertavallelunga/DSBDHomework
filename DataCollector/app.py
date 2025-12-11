@@ -8,9 +8,10 @@ import user_pb2
 import user_pb2_grpc
 from opensky import token, voli_arrivo, voli_partenza
 from circuitBreaker import CircuitBreaker
-
 from apscheduler.schedulers.background import BackgroundScheduler
+from kafka import KafkaProducer
 import logging
+import json
 
 # Configurazione del logging, si avvia ogni volta che si attiva lo scheduler
 logging.basicConfig()
@@ -22,6 +23,16 @@ GRPC_HOST=os.getenv("TARGET_GRPC_HOST", "userManager")
 GRPC_PORT=os.getenv("TARGET_GRPC_PORT", 50051)
 
 circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
+
+producer = KafkaProducer(
+    bootstrap_servers=['kafka:9092'],    # Indirizzo broker nel Docker
+    client_id='DataCollector-Producer',
+    batch_size=16384,
+    linger_ms=50,
+    max_in_flight_requests_per_connection=5,
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+    # Ciao => Serializzazione => 0101101010101001 (Comprensibile da Kafka)
+)
 
 def check_user_exists_grpc(email):
     """Chiama User Manager via gRPC per verificare l'utente"""
