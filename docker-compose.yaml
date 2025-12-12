@@ -56,10 +56,12 @@ services:
       - KAFKA_HOST=kafka:9092
       - INPUT_TOPIC=to-alert-system
       - OUTPUT_TOPIC=to-notifier
-      - TARGET_GRPC_HOST=userManager
-      - TARGET_GRPC_PORT=50051 #Per chiamare l'UserManager via gRPC
+      - DB_HOST=dataDB
+      - DB_NAME=mysqldataDB
+      - MYSQL_ROOT_PASSWORD=ermenegildo
       - PYTHONUNBUFFERED=1
     networks:
+      - dataNet
       - internalNet
 
   alertnotifier:

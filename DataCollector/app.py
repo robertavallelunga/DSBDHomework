@@ -34,6 +34,23 @@ producer = KafkaProducer(
     # Ciao => Serializzazione => 0101101010101001 (Comprensibile da Kafka)
 )
 
+def send_update_to_kafka(cod_aeroporto, arrivi, partenze):
+    """Invia un messaggio al topic 'to-alert-system' con i conteggi aggiornati."""
+    topic_name = 'to-alert-system'
+
+    payload = {
+        'icao': cod_aeroporto,
+        'arrivi': arrivi,
+        'partenze': partenze,
+        'timestamp': datetime.datetime.now().isoformat()
+    }
+    try:
+        producer.send(topic_name, payload)
+        producer.flush()
+        print(f"[KAFKA] Inviato aggiornamento per {cod_aeroporto}: Arr={arrivi}, Dep={partenze}")
+    except Exception as e:
+        print(f"[KAFKA] Errore nell'invio del messaggio: {e}")
+
 def check_user_exists_grpc(email):
     """Chiama User Manager via gRPC per verificare l'utente"""
     channel = grpc.insecure_channel(f'{GRPC_HOST}:{GRPC_PORT}')
@@ -295,77 +312,70 @@ def get_data_scheduler():
 
         token()
 
-        total_flights_count = 0
-
         for row in risultati:
             cod_aeroporto = row[0]
+            count_arrivi = 0
+            count_partenze = 0
+
+            # --- GESTIONE ARRIVI ---
             data_arrivo = []
             try:
-                # Il CB chiama voli_arrivo
                 data_arrivo = circuit_breaker.call(voli_arrivo, cod_aeroporto)
             except Exception as e:
-                print(f"Salto arrivi per {cod_aeroporto} causa Circuit Breaker/Errore: {e}")
+                print(f"Salto arrivi per {cod_aeroporto} causa CB/Errore: {e}")
 
             if data_arrivo:
-                total_flights_count += len(data_arrivo)
-                print(f"Inserimento dati arrivi per {cod_aeroporto}...")
+                count_arrivi = len(data_arrivo)
+                print(f"Inserimento {count_arrivi} arrivi per {cod_aeroporto}...")
 
-            for volo in data_arrivo:
-                icao_24=volo.get('icao24')
-                icao_partenza = volo.get('estDepartureAirport')
-                icao_arrivo = volo.get('estArrivalAirport')
+                for volo in data_arrivo:
+                    icao_24 = volo.get('icao24')
+                    icao_partenza = volo.get('estDepartureAirport')
+                    icao_arrivo = volo.get('estArrivalAirport')
+                    ts_start = volo.get('firstSeen')
+                    ts_end = volo.get('lastSeen')
 
-                ts_start = volo.get('firstSeen')
-                ts_end = volo.get('lastSeen')
+                    ora_partenza = datetime.datetime.fromtimestamp(ts_start) if ts_start else None
+                    ora_arrivo = datetime.datetime.fromtimestamp(ts_end) if ts_end else None
 
-                ora_partenza = datetime.datetime.fromtimestamp(ts_start) if ts_start else None
-                ora_arrivo = datetime.datetime.fromtimestamp(ts_end) if ts_end else None
+                    valori = (icao_24, icao_partenza, icao_arrivo, ora_partenza, ora_arrivo)
+                    cursor.execute("""
+                                   INSERT INTO flights (icao_24, icao_partenza, icao_arrivo, orario_partenza, orario_arrivo)
+                                   VALUES (%s, %s, %s, %s, %s)
+                                       ON DUPLICATE KEY UPDATE icao_arrivo = VALUES(icao_arrivo), orario_arrivo = VALUES(orario_arrivo)
+                                   """, valori)
+                connection.commit()
 
-                valori = (icao_24,icao_partenza, icao_arrivo, ora_partenza, ora_arrivo)
-                cursor.execute("""
-                               INSERT INTO flights
-                                   (icao_24,icao_partenza, icao_arrivo, orario_partenza, orario_arrivo)
-                               VALUES (%s,%s, %s, %s, %s)
-                                   ON DUPLICATE KEY UPDATE
-                                                        icao_arrivo = VALUES(icao_arrivo),
-                                                        orario_arrivo = VALUES(orario_arrivo)
-                               """, valori)
-            connection.commit()
-
-        for row in risultati:
-            cod_aeroporto = row[0]
+            # --- GESTIONE PARTENZE ---
             data_partenza = []
             try:
                 data_partenza = circuit_breaker.call(voli_partenza, cod_aeroporto)
             except Exception as e:
-                print(f"Salto partenze per {cod_aeroporto} causa Circuit Breaker/Errore: {e}")
+                print(f"Salto partenze per {cod_aeroporto} causa CB/Errore: {e}")
 
             if data_partenza:
-                total_flights_count += len(data_partenza)
-                print(f"Inserimento dati partenze per {cod_aeroporto}...")
+                count_partenze = len(data_partenza)
+                print(f"Inserimento {count_partenze} partenze per {cod_aeroporto}...")
 
-            for volo in data_partenza:
-                icao_24=volo.get('icao24')
-                icao_partenza = volo.get('estDepartureAirport')
-                icao_arrivo = volo.get('estArrivalAirport')
+                for volo in data_partenza:
+                    icao_24 = volo.get('icao24')
+                    icao_partenza = volo.get('estDepartureAirport')
+                    icao_arrivo = volo.get('estArrivalAirport')
+                    ts_start = volo.get('firstSeen')
+                    ts_end = volo.get('lastSeen')
 
-                ts_start = volo.get('firstSeen')
-                ts_end = volo.get('lastSeen')
+                    ora_partenza = datetime.datetime.fromtimestamp(ts_start) if ts_start else None
+                    ora_arrivo = datetime.datetime.fromtimestamp(ts_end) if ts_end else None
 
-                ora_partenza = datetime.datetime.fromtimestamp(ts_start) if ts_start else None
-                ora_arrivo = datetime.datetime.fromtimestamp(ts_end) if ts_end else None
-
-                valori = (icao_24,icao_partenza, icao_arrivo, ora_partenza, ora_arrivo)
-                cursor.execute("""
-                               INSERT INTO flights
-                                   (icao_24,icao_partenza, icao_arrivo, orario_partenza, orario_arrivo)
-                               VALUES (%s,%s, %s, %s, %s)
-                                   ON DUPLICATE KEY UPDATE
-                                                        icao_arrivo = VALUES(icao_arrivo),
-                                                        orario_partenza = VALUES(orario_partenza)
-                               """, valori)
-            connection.commit()
-
+                    valori = (icao_24, icao_partenza, icao_arrivo, ora_partenza, ora_arrivo)
+                    cursor.execute("""
+                                   INSERT INTO flights (icao_24, icao_partenza, icao_arrivo, orario_partenza, orario_arrivo)
+                                   VALUES (%s, %s, %s, %s, %s)
+                                       ON DUPLICATE KEY UPDATE icao_arrivo = VALUES(icao_arrivo), orario_partenza = VALUES(orario_partenza)
+                                   """, valori)
+                connection.commit()
+            # Invio dati a Kafka
+            send_update_to_kafka(cod_aeroporto, count_arrivi, count_partenze)
     except Exception as e:
         import traceback
         traceback.print_exc()
