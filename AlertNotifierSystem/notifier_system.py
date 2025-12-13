@@ -1,9 +1,26 @@
-from kafka import KafkaConsumer
 import json
+import os
+import smtplib
+import sys
+import time
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from kafka import KafkaConsumer
+
+# Configurazione SMTP
+SMTP_HOST = os.getenv('SMTP_HOST', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
+SMTP_USER = os.getenv('SMTP_USER')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+SENDER_NAME = os.getenv('SENDER_NAME', 'DSBD Alert System')
+
+# Configurazione Kafka
+KAFKA_HOST = os.getenv('KAFKA_HOST', 'kafka:9092')
+INPUT_TOPIC = os.getenv('INPUT_TOPIC', 'to-notifier')
 
 consumer = KafkaConsumer(
-    'to-notifier',
-    bootstrap_servers=['kafka:9092'],
+    INPUT_TOPIC,
+    bootstrap_servers=KAFKA_HOST,
     client_id='Notifier-Consumer',
     group_id='notifier-group',
     max_poll_records=500,
@@ -12,3 +29,45 @@ consumer = KafkaConsumer(
     # 1010101010101010 => deserializzazione => Ciao
     enable_auto_commit=False
 )
+
+def send_email(email, oggetto, body):
+    if not SMTP_USER or not SMTP_PASSWORD:
+        print("[AlertNotifier] ERRORE: Credenziali SMTP mancanti.")
+        return
+
+    msg = MIMEMultipart()
+    msg['Da'] = f"{SENDER_NAME} <{SMTP_USER}>"
+    msg['A'] = email
+    msg['Oggetto'] = oggetto
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(SMTP_USER, email, msg.as_string())
+        server.quit()
+        print(f"[AlertNotifier] Email inviata a {email}")
+    except Exception as e:
+        print(f"[AlertNotifier] Errore invio email: {e}")
+
+def start_notifier():
+    time.sleep(15)
+
+    for message in consumer:
+        alert = message.value
+        email = alert.get('email')
+        airport = alert.get('airport')
+        condition = alert.get('condition')
+
+        if email and condition:
+            oggetto = f"Alert Voli: {airport}"
+            body = (f"Salve,\n\n"
+                    f"Il sistema ha rilevato una condizione di superamento soglia per l'aeroporto {airport}.\n"
+                    f"Dettaglio: {condition}\n\n"
+                    f"Saluti,\nDSBD Team")
+
+            send_email(email, oggetto, body)
+
+if __name__ == "__main__":
+    start_notifier()

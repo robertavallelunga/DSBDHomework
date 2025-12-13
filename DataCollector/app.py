@@ -46,7 +46,6 @@ def send_update_to_kafka(cod_aeroporto, arrivi, partenze):
     }
     try:
         producer.send(topic_name, payload)
-        producer.flush()
         print(f"[KAFKA] Inviato aggiornamento per {cod_aeroporto}: Arr={arrivi}, Dep={partenze}")
     except Exception as e:
         print(f"[KAFKA] Errore nell'invio del messaggio: {e}")
@@ -376,6 +375,9 @@ def get_data_scheduler():
                 connection.commit()
             # Invio dati a Kafka
             send_update_to_kafka(cod_aeroporto, count_arrivi, count_partenze)
+
+        producer.flush() # Mettiamo qui il flush per utilizzare il batching di Kafka per non inviare un msg per aeroporto
+        print("[KAFKA] Tutti i messaggi del ciclo sono stati inviati.")
     except Exception as e:
         import traceback
         traceback.print_exc()
