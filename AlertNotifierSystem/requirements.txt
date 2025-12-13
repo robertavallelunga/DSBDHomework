@@ -1,2 +1,2 @@
 kafka-python
-smtplib #Per l'invio delle mail
+secure-smtplib #Per l'invio delle mail

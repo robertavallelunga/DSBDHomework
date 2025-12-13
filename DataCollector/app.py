@@ -10,6 +10,7 @@ from opensky import token, voli_arrivo, voli_partenza
 from circuitBreaker import CircuitBreaker
 from apscheduler.schedulers.background import BackgroundScheduler
 from kafka import KafkaProducer
+from kafka.errors import NoBrokersAvailable
 import logging
 import json
 
@@ -24,18 +25,36 @@ GRPC_PORT=os.getenv("TARGET_GRPC_PORT", 50051)
 
 circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
 
-producer = KafkaProducer(
-    bootstrap_servers=['kafka:9092'],    # Indirizzo broker nel Docker
-    client_id='DataCollector-Producer',
-    batch_size=16384,
-    linger_ms=50,
-    max_in_flight_requests_per_connection=5,
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-    # Ciao => Serializzazione => 0101101010101001 (Comprensibile da Kafka)
-)
+kafka_producer = None
+
+def init_producer():
+    global kafka_producer
+    if kafka_producer:
+        return kafka_producer
+
+    try:
+        producer = KafkaProducer(
+            bootstrap_servers=['kafka:9092'],    # Indirizzo broker nel Docker
+            client_id='DataCollector-Producer',
+            batch_size=16384,
+            linger_ms=50,
+            max_in_flight_requests_per_connection=5,
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+            # Ciao => Serializzazione => 0101101010101001 (Comprensibile da Kafka)
+        )
+        kafka_producer = producer
+        print("[KAFKA] Connesso con successo.")
+        return kafka_producer
+    except NoBrokersAvailable:
+        print("[KAFKA] Broker non disponibile. Riproverò alla prossima chiamata.")
+        return None
+    except Exception as e:
+        print(f"[KAFKA] Errore generico di connessione: {e}")
+        return None
 
 def send_update_to_kafka(cod_aeroporto, arrivi, partenze):
     """Invia un messaggio al topic 'to-alert-system' con i conteggi aggiornati."""
+    producer = init_producer()
     topic_name = 'to-alert-system'
 
     payload = {
@@ -640,8 +659,8 @@ def start_scheduler():
     scheduler.add_job(
         func=get_data_scheduler,
         trigger='interval',
-        hours=12,
-        #minutes=2,
+        #hours=12,
+        minutes=2,
         id='volo_data_fetcher',  # ID univoco per il job
         name='Recupero Dati Voli OpenSky',
         replace_existing=True
