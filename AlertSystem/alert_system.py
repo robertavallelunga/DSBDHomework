@@ -1,6 +1,10 @@
 import os
+import time
+
 from kafka import KafkaProducer
 from kafka import KafkaConsumer
+from kafka.errors import NoBrokersAvailable
+
 from database import get_db_connection
 
 import json
@@ -9,25 +13,58 @@ KAFKA_HOST = os.getenv('KAFKA_HOST', 'kafka:9092')
 INPUT_TOPIC = os.getenv('INPUT_TOPIC', 'to-alert-system')
 OUTPUT_TOPIC = os.getenv('OUTPUT_TOPIC', 'to-notifier')
 
-alert_producer = KafkaProducer(
-    bootstrap_servers=KAFKA_HOST,    # Indirizzo broker nel Docker
-    client_id='AlertSystem-Producer',    # <--- Un ID unico
-    batch_size=16384,
-    linger_ms=50,
-    max_in_flight_requests_per_connection=1,
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
+alert_producer = None
+alert_consumer = None
 
-alert_consumer = KafkaConsumer(
-    INPUT_TOPIC,
-    bootstrap_servers=KAFKA_HOST,
-    client_id='AlertSystem-Consumer',
-    group_id='alert-system-group',
-    max_poll_records=500,
-    fetch_max_wait_ms=500,
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    enable_auto_commit=False
-)
+def init_producer():
+    global alert_producer
+    if alert_producer:
+        return alert_producer
+
+    try:
+        producer = KafkaProducer(
+            bootstrap_servers=KAFKA_HOST,    # Indirizzo broker nel Docker
+            client_id='AlertSystem-Producer',    # <--- Un ID unico
+            batch_size=16384,
+            linger_ms=50,
+            max_in_flight_requests_per_connection=1,
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
+        alert_producer = producer
+        print("[KAFKA] Connesso con successo.")
+        return alert_producer
+    except NoBrokersAvailable:
+        print("[KAFKA] Broker non disponibile. Riproverò alla prossima chiamata.")
+        return None
+    except Exception as e:
+        print(f"[KAFKA] Errore generico di connessione: {e}")
+        return None
+
+def init_consumer():
+    global alert_consumer
+    if alert_consumer:
+        return alert_consumer
+
+    try:
+        consumer = KafkaConsumer(
+            INPUT_TOPIC,
+            bootstrap_servers=KAFKA_HOST,
+            client_id='AlertSystem-Consumer',
+            group_id='alert-system-group',
+            max_poll_records=500,
+            fetch_max_wait_ms=500,
+            value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+            enable_auto_commit=False
+        )
+        alert_consumer = consumer
+        print("[KAFKA] Connesso con successo.")
+        return alert_consumer
+    except NoBrokersAvailable:
+        print("[KAFKA] Broker non disponibile. Riproverò alla prossima chiamata.")
+        return None
+    except Exception as e:
+        print(f"[KAFKA] Errore generico di connessione: {e}")
+        return None
 
 def get_interested_users(airport_code):
     """Interroga il DB per trovare a chi interessa questo aeroporto"""
@@ -55,7 +92,11 @@ def get_interested_users(airport_code):
     return users
 
 def start_alert_system():
-    for message in alert_consumer:
+    time.sleep(15)
+    producer = init_producer()
+    consumer = init_consumer()
+
+    for message in consumer:
         data = message.value
         icao = data.get('icao')
         arrivi = data.get('arrivi', 0)
@@ -91,7 +132,7 @@ def start_alert_system():
                     "icao": icao,
                     "condition": condition_msg
                 }
-                alert_producer.send(OUTPUT_TOPIC, alert_payload)
+                producer.send(OUTPUT_TOPIC, alert_payload)
                 print(f"[AlertSystem] -> Notifica per {email}: {condition_msg}")
 
 if __name__ == "__main__":

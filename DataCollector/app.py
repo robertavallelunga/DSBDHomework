@@ -395,7 +395,7 @@ def get_data_scheduler():
             # Invio dati a Kafka
             send_update_to_kafka(cod_aeroporto, count_arrivi, count_partenze)
 
-        producer.flush() # Mettiamo qui il flush per utilizzare il batching di Kafka per non inviare un msg per aeroporto
+        kafka_producer.flush() # Mettiamo qui il flush per utilizzare il batching di Kafka per non inviare un msg per aeroporto
         print("[KAFKA] Tutti i messaggi del ciclo sono stati inviati.")
     except Exception as e:
         import traceback
