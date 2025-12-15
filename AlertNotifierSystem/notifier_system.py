@@ -53,9 +53,9 @@ def send_email(email, oggetto, body):
         return
 
     msg = MIMEMultipart()
-    msg['Da'] = f"{SENDER_NAME} <{SMTP_USER}>"
-    msg['A'] = email
-    msg['Oggetto'] = oggetto
+    msg['From'] = f"{SENDER_NAME} <{SMTP_USER}>"
+    msg['To'] = email
+    msg['Subject'] = oggetto
     msg.attach(MIMEText(body, 'plain'))
 
     try:

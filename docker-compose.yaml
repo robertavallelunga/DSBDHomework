@@ -25,6 +25,11 @@ services:
       KAFKA_LOG4J_ROOT_LOGLEVEL: 'WARN'
     volumes:
       - ./kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: [ "CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - internalNet
 
@@ -50,8 +55,10 @@ services:
       dockerfile: AlertSystem/Dockerfile
     container_name: alertSystem
     depends_on:
-      - kafka #Dipende da Kafka per consumare messaggi
-      - data
+      kafka:
+        condition: service_healthy # Attende che l'healthcheck passi
+      data:
+        condition: service_started
     environment:
       - KAFKA_HOST=kafka:9092
       - INPUT_TOPIC=to-alert-system
@@ -70,7 +77,8 @@ services:
       dockerfile: AlertNotifierSystem/Dockerfile
     container_name: alertNotifier
     depends_on:
-      - kafka #Solo da kafka per ricevere i messaggi di allerta
+      kafka: #Solo da kafka per ricevere i messaggi di allerta
+          condition: service_healthy # Attende che l'healthcheck passi
     environment:
       - KAFKA_HOST=kafka:9092
       - INPUT_TOPIC=to-notifier

@@ -39,7 +39,8 @@ def init_producer():
             batch_size=16384,
             linger_ms=50,
             max_in_flight_requests_per_connection=5,
-            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+            value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+            api_version=(0, 10)
             # Ciao => Serializzazione => 0101101010101001 (Comprensibile da Kafka)
         )
         kafka_producer = producer

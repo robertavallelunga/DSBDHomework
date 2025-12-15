@@ -1,2 +1,2 @@
 mysql-connector-python
-kafka-python
+kafka-python-ng
