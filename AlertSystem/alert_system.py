@@ -1,12 +1,9 @@
 import os
 import time
-
 from kafka import KafkaProducer
 from kafka import KafkaConsumer
 from kafka.errors import NoBrokersAvailable
-
 from database import get_db_connection
-
 import json
 
 KAFKA_HOST = os.getenv('KAFKA_HOST', 'kafka:9092')

@@ -1,8 +1,6 @@
 import json
 import os
 import smtplib
-import sys
-import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from kafka import KafkaConsumer
@@ -69,13 +67,13 @@ def send_email(email, oggetto, body):
         print(f"[AlertNotifier] Errore invio email: {e}")
 
 def start_notifier():
-    time.sleep(15)
+    print("[AlertSystem] Inizializzazione... Attesa broker Kafka.")
     consumer = init_consumer()
 
     for message in consumer:
         alert = message.value
         email = alert.get('email')
-        airport = alert.get('airport')
+        airport = alert.get('icao')
         condition = alert.get('condition')
 
         if email and condition:
