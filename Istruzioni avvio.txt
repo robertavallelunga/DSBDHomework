@@ -1,3 +1,3 @@
-1. Entrare nella cartella del progetto e avviare il terminale (shift+ tasto dx del mouse)
+1. Dopo aver clonato la repository, entrare nella cartella del progetto e avviare il terminale (shift + tasto dx del mouse)
 2. Digitare "docker compose up --build" per avviare la creazione del sistema
 3. Importare il file json della collezione su Postman per poter utilizzare le chiamare REST alle funzioni del sistema.
