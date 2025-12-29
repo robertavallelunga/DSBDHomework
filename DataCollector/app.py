@@ -13,6 +13,7 @@ from kafka import KafkaProducer
 from kafka.errors import NoBrokersAvailable
 import logging
 import json
+import prometheus_client
 
 # Configurazione del logging, si avvia ogni volta che si attiva lo scheduler
 logging.basicConfig()
@@ -26,6 +27,21 @@ GRPC_PORT=os.getenv("TARGET_GRPC_PORT", 50051)
 circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
 
 kafka_producer = None
+
+NODE_NAME = os.getenv('data-node', 'unknown-node')
+SERVICE_NAME = 'data-collector'
+
+REQUEST_COUNT = prometheus_client.Counter(
+    'http_requests_total',
+    'Numero totale di richieste HTTP ricevute',
+    ['method', 'endpoint', 'service', 'node']
+)
+
+OPENSKY_LATENCY = prometheus_client.Gauge(
+    'opensky_fetch_seconds',
+    'Tempo impiegato per recuperare dati da OpenSky',
+    ['service', 'node']
+)
 
 def init_producer():
     global kafka_producer
@@ -83,6 +99,7 @@ def check_user_exists_grpc(email):
 
 @app.route('/add', methods=['POST'])
 def add_interest():
+    REQUEST_COUNT.labels(method='POST', endpoint='/add', service=SERVICE_NAME, node=NODE_NAME).inc()
     """Aggiunge interesse per un aeroporto se l'utente esiste"""
     data = request.json
     email = data.get('email')
@@ -127,6 +144,8 @@ def add_interest():
 
 @app.route('/view_interests', methods=['GET'])
 def visualizza_interessi():
+    REQUEST_COUNT.labels(method='GET', endpoint='/view_interests', service=SERVICE_NAME, node=NODE_NAME).inc()
+
     connection = get_db_connection()
     cursor = connection.cursor()
     user_email = request.args.get('email')
@@ -159,6 +178,8 @@ def visualizza_interessi():
 
 @app.route('/delete_interest', methods=['DELETE'])
 def cancella_interessi():
+    REQUEST_COUNT.labels(method='DELETE', endpoint='/delete_interest', service=SERVICE_NAME, node=NODE_NAME).inc()
+
     connection = get_db_connection()
     cursor = connection.cursor()
     try:
@@ -305,6 +326,7 @@ def get_data():
 def get_data_scheduler():
     connection = get_db_connection()
     cursor = connection.cursor()
+    start = time.time()
 
     try:
         select_query = "SELECT * FROM interests"
@@ -403,11 +425,15 @@ def get_data_scheduler():
         traceback.print_exc()
         print(f"Errore durante l'esecuzione della query: {e}")
     finally:
+        finish = time.time() - start
+        OPENSKY_LATENCY.labels(service=SERVICE_NAME, node=NODE_NAME).set(finish)
         cursor.close()
         connection.close()
 
 @app.route('/view_flights', methods=['GET'])
 def visualizza_voli():
+    REQUEST_COUNT.labels(method='GET', endpoint='/view_flights', service=SERVICE_NAME, node=NODE_NAME).inc()
+
     connection = get_db_connection()
     cursor = connection.cursor()
     aeroporto = request.args.get('cod_aeroporto')
@@ -439,6 +465,8 @@ def visualizza_voli():
 
 @app.route('/last_flights', methods=['GET'])
 def get_last_flights():
+    REQUEST_COUNT.labels(method='GET', endpoint='/last_flights', service=SERVICE_NAME, node=NODE_NAME).inc()
+
     connection = get_db_connection()
     cursor = connection.cursor()
     aeroporto = request.args.get('cod_aeroporto')
@@ -521,6 +549,8 @@ def get_last_flights():
 
 @app.route('/avg_flights', methods=['GET'])
 def get_avg_flights():
+    REQUEST_COUNT.labels(method='GET', endpoint='/avg_flights', service=SERVICE_NAME, node=NODE_NAME).inc()
+
     connection = get_db_connection()
     cursor = connection.cursor()
     aeroporto = request.args.get('cod_aeroporto')
@@ -598,6 +628,8 @@ def get_avg_flights():
 
 @app.route('/mod_pref', methods=['POST'])
 def modify_preference():
+    REQUEST_COUNT.labels(method='POST', endpoint='/mod_pref', service=SERVICE_NAME, node=NODE_NAME).inc()
+
     data = request.json
     email = data.get('email')
     airport = data.get('airport')
@@ -672,4 +704,5 @@ def start_scheduler():
 if __name__ == '__main__':
     init_db()
     start_scheduler()
+    prometheus_client.start_http_server(8000)
     app.run(host='0.0.0.0', port=5000)

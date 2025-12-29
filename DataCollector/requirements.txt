@@ -5,3 +5,4 @@ grpcio-tools
 requests
 apscheduler
 kafka-python
+prometheus-client

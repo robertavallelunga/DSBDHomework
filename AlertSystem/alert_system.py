@@ -5,11 +5,26 @@ from kafka import KafkaConsumer
 from kafka.errors import NoBrokersAvailable
 from database import get_db_connection
 import json
+import prometheus_client
 
 KAFKA_HOST = os.getenv('KAFKA_HOST', 'kafka:9092')
 INPUT_TOPIC = os.getenv('INPUT_TOPIC', 'to-alert-system')
 OUTPUT_TOPIC = os.getenv('OUTPUT_TOPIC', 'to-notifier')
 
+NODE_NAME = os.getenv('alert-node', 'unknown-node')
+SERVICE_NAME = 'alert-system'
+
+ALERTS_SENT = prometheus_client.Counter(
+    'alerts_sent_total',
+    'Numero totale di alert inviati al topic di notifica',
+    ['service', 'node']
+)
+
+PROCESSING_TIME = prometheus_client.Gauge(
+    'alert_system_message_processing_seconds',
+    'Tempo impiegato per processare un singolo messaggio',
+    ['service', 'node']
+)
 def init_producer():
     try:
         producer = KafkaProducer(
@@ -99,6 +114,8 @@ def start_alert_system():
     try:
         # Loop principale sui messaggi in arrivo
         for message in consumer:
+            start = time.time()
+
             data = message.value
             icao = data.get('icao')
             arrivi = data.get('arrivi', 0)
@@ -131,6 +148,9 @@ def start_alert_system():
                             "condition": condition_msg
                         }
                         producer.send(OUTPUT_TOPIC, alert_payload)
+                        ALERTS_SENT.labels(service=SERVICE_NAME, node=NODE_NAME).inc()
+                        elapsed = time.time() - start
+                        PROCESSING_TIME.labels(service=SERVICE_NAME, node=NODE_NAME).set(elapsed)
                         print(f"[AlertSystem] -> Notifica per {email}: {condition_msg}")
             # Confermiamo a Kafka che abbiamo finito di processare questo messaggio
             # per TUTTI gli utenti interessati.
@@ -151,4 +171,5 @@ def start_alert_system():
 
 
 if __name__ == "__main__":
+    prometheus_client.start_http_server(8000)
     start_alert_system()
