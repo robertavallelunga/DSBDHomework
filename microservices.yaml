@@ -1,0 +1,156 @@
+# --- USER MANAGER (gRPC Server) ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: usermanager
+spec:
+  selector:
+    app: usermanager
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+    - name: http
+      port: 5000
+      targetPort: 5000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usermanager
+spec:
+  selector:
+    matchLabels:
+      app: usermanager
+  template:
+    metadata:
+      labels:
+        app: usermanager
+    spec:
+      containers:
+        - name: usermanager
+          image: my-usermanager:v1 # Immagine caricata manualmente
+          imagePullPolicy: Never    # Importante per usare immagini locali di Kind
+          env:
+            - name: GRPC_PORT
+              value: "50051"
+            - name: DB_HOST
+              value: "userdb"         # Nome del Service K8s definito sopra
+            - name: DB_NAME
+              value: "mysqluserDB"
+            - name: MYSQL_ROOT_PASSWORD
+              value: "pasquale"
+# --- DATA COLLECTOR (gRPC Client) ---
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: datacollector
+spec:
+  selector:
+    app: datacollector
+  ports:
+    - name: http
+      port: 5000        # Porta esposta al cluster
+      targetPort: 5000  # Porta su cui ascolta l'app Flask/Python interna
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datacollector
+spec:
+  selector:
+    matchLabels:
+      app: datacollector
+  template:
+    metadata:
+      labels:
+        app: datacollector
+    spec:
+      containers:
+        - name: datacollector
+          image: my-datacollector:v1
+          imagePullPolicy: Never
+          env:
+            - name: TARGET_GRPC_HOST
+              value: "usermanager"
+            - name: TARGET_GRPC_PORT
+              value: "50051"
+            - name: DB_HOST
+              value: "datadb"
+            - name: DB_NAME
+              value: "mysqldataDB"
+            - name: KAFKA_HOST # Se serve al data collector
+              value: "kafka:9092"
+            - name: MYSQL_ROOT_PASSWORD
+              value: "ermenegildo"
+# --- ALERT SYSTEM ---
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertsystem
+spec:
+  selector:
+    matchLabels:
+      app: alertsystem
+  template:
+    metadata:
+      labels:
+        app: alertsystem
+    spec:
+      containers:
+        - name: alertsystem
+          image: my-alertsystem:v1
+          imagePullPolicy: Never
+          env:
+            - name: KAFKA_HOST
+              value: "kafka:9092"
+            - name: INPUT_TOPIC
+              value: "to-alert-system"
+            - name: OUTPUT_TOPIC
+              value: "to-notifier"
+            - name: DB_HOST
+              value: "datadb"
+            - name: DB_NAME
+              value: "mysqldataDB"
+            - name: MYSQL_ROOT_PASSWORD
+              value: "ermenegildo"
+# --- ALERT NOTIFIER ---
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertnotifier
+spec:
+  selector:
+    matchLabels:
+      app: alertnotifier
+  template:
+    metadata:
+      labels:
+        app: alertnotifier
+    spec:
+      containers:
+        - name: alertnotifier
+          image: my-alertnotifier:v1
+          imagePullPolicy: Never
+          env:
+            - name: KAFKA_HOST
+              value: "kafka:9092"
+            - name: INPUT_TOPIC
+              value: "to-notifier"
+            - name: SMTP_HOST
+              value: "smtp.gmail.com"
+            - name: SMTP_PORT
+              value: "587"
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: GMAIL_USER
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: GMAIL_APP_PASSWORD

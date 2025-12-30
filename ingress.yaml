@@ -1,0 +1,85 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: main-ingress
+  annotations:
+    # Questa annotazione è utile se devi fare rewrite, ma nel tuo caso
+    # i path sono diretti (es. /add va su /add del servizio), quindi è semplice.
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  rules:
+    - http:
+        paths:
+          # --- ROTTE PER DATA COLLECTOR ---
+          - path: /add
+            pathType: Prefix
+            backend:
+              service:
+                name: datacollector
+                port:
+                  number: 5000
+          - path: /view_interests
+            pathType: Prefix
+            backend:
+              service:
+                name: datacollector
+                port:
+                  number: 5000
+          - path: /delete_interest
+            pathType: Prefix
+            backend:
+              service:
+                name: datacollector
+                port:
+                  number: 5000
+          - path: /get_data
+            pathType: Prefix
+            backend:
+              service:
+                name: datacollector
+                port:
+                  number: 5000
+          - path: /view_flights
+            pathType: Prefix
+            backend:
+              service:
+                name: datacollector
+                port:
+                  number: 5000
+          - path: /last_flights
+            pathType: Prefix
+            backend:
+              service:
+                name: datacollector
+                port:
+                  number: 5000
+          - path: /avg_flights
+            pathType: Prefix
+            backend:
+              service:
+                name: datacollector
+                port:
+                  number: 5000
+          - path: /mod_pref
+            pathType: Prefix
+            backend:
+              service:
+                name: datacollector
+                port:
+                  number: 5000
+
+          # --- ROTTE PER USER MANAGER ---
+          - path: /new
+            pathType: Prefix
+            backend:
+              service:
+                name: usermanager
+                port:
+                  number: 5000
+          - path: /delete
+            pathType: Prefix
+            backend:
+              service:
+                name: usermanager
+                port:
+                  number: 5000

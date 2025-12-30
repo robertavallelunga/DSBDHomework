@@ -1,0 +1,10 @@
+1. kind create cluster --config kind-config.yaml
+2. kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+3. kubectl get pods -n ingress-nginx
+4. docker build -t alertsystem:v1 -f AlertSystem/Dockerfile .
+   docker build -t alertnotifier:v1 -f AlertNotifierSystem/Dockerfile .
+   docker build -t datacollector:v1 -f DataCollector/Dockerfile .
+   docker build -t usermanager:v1 -f UserManager/Dockerfile .
+5. kubectl create configmap prometheus-conf --from-file=prometheus.yml=./prometheus.yml
+6. kubectl create secret generic app-secrets --from-env-file=.env
+7.
