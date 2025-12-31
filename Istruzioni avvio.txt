@@ -5,6 +5,13 @@
    docker build -t alertnotifier:v1 -f AlertNotifierSystem/Dockerfile .
    docker build -t datacollector:v1 -f DataCollector/Dockerfile .
    docker build -t usermanager:v1 -f UserManager/Dockerfile .
-5. kubectl create configmap prometheus-conf --from-file=prometheus.yml=./prometheus.yml
-6. kubectl create secret generic app-secrets --from-env-file=.env
-7.
+5. kind load docker-image alertsystem:v1
+   kind load docker-image alertnotifier:v1
+   kind load docker-image datacollector:v1
+   kind load docker-image usermanager:v1
+7. kubectl create secret generic app-secrets --from-env-file=.env
+8. kubectl apply -f db-kafka.yaml
+9. kubectl apply -f microservices.yaml
+10. kubectl apply -f prometheus-k8s.yaml
+11. kubectl apply -f ingress.yaml
+12. kubectl apply -f network.yaml

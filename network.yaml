@@ -1,0 +1,125 @@
+# 1. BLOCCO TOTALE (DEFAULT DENY)
+# Nessun pod può ricevere traffico se non esplicitamente permesso.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+
+# 2. RETE DATA (DataCollector <-> DataDB <-> AlertSystem)
+# Permette il traffico tra i pod etichettati come 'network: data-net'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-data-net
+spec:
+  podSelector:
+    matchLabels:
+      network: data-net
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              network: data-net
+      ports:
+        - port: 3306 # MySQL
+        - port: 5000 # App Internal Port
+
+---
+
+# 3. RETE USER (UserManager <-> UserDB)
+# Permette il traffico tra i pod etichettati come 'network: user-net'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-user-net
+spec:
+  podSelector:
+    matchLabels:
+      network: user-net
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              network: user-net
+      ports:
+        - port: 3306 # MySQL
+        - port: 50051 # gRPC
+
+---
+
+# 4. KAFKA RESTRICTED (La Whitelist specifica)
+# Solo i servizi autorizzati possono parlare con Kafka
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kafka-restricted
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka
+  ingress:
+    - from:
+        # Servizi autorizzati:
+        - podSelector:
+            matchLabels:
+              app: alertsystem
+        - podSelector:
+            matchLabels:
+              app: alertnotifier
+        - podSelector:
+            matchLabels:
+              app: datacollector
+        # Kafka deve parlare con se stesso
+        - podSelector:
+            matchLabels:
+              app: kafka
+      ports:
+        - port: 9092
+        - port: 29093
+
+---
+
+# 5. ACCESSO INGRESS (Dal mondo esterno ai tuoi servizi)
+# Permette al controller Ingress di chiamare le tue API su /add, /new, ecc.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-traffic
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app, operator: In, values: [usermanager, datacollector]}
+  ingress:
+    - from:
+        # Consente traffico dal namespace dove gira Nginx Ingress Controller
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 5000
+---
+# 6. PONTE gRPC (DataCollector -> UserManager)
+# Eccezione alla separazione delle reti: permette al DataCollector
+# di chiamare via gRPC lo UserManager.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grpc-data-to-user
+spec:
+  podSelector:
+    matchLabels:
+      app: usermanager # La regola si applica alla destinazione (Server)
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: datacollector # La sorgente autorizzata (Client)
+      ports:
+        - protocol: TCP
+          port: 50051

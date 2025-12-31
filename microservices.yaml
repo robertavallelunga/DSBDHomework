@@ -26,10 +26,15 @@ spec:
     metadata:
       labels:
         app: usermanager
+        network: user-net
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.28 # Immagine leggera con netcat (nc)
+          command: [ 'sh', '-c', "until nc -z userdb 3306; do echo waiting for userdb; sleep 2; done" ]
       containers:
         - name: usermanager
-          image: my-usermanager:v1 # Immagine caricata manualmente
+          image: usermanager:v1 # Immagine caricata manualmente
           imagePullPolicy: Never    # Importante per usare immagini locali di Kind
           env:
             - name: GRPC_PORT
@@ -66,10 +71,20 @@ spec:
     metadata:
       labels:
         app: datacollector
+        network: data-net
     spec:
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.28
+          command:
+            - 'sh'
+            - '-c'
+            - >
+              until nc -z datadb 3306; do echo waiting for datadb; sleep 2; done;
+              until nc -z kafka 9092; do echo waiting for kafka; sleep 2; done;
       containers:
         - name: datacollector
-          image: my-datacollector:v1
+          image: datacollector:v1
           imagePullPolicy: Never
           env:
             - name: TARGET_GRPC_HOST
@@ -98,10 +113,20 @@ spec:
     metadata:
       labels:
         app: alertsystem
+        network: data-net
     spec:
+      initContainers:
+        - name: wait-for-kafka-db
+          image: busybox:1.28
+          command:
+            - 'sh'
+            - '-c'
+            - >
+              until nc -z kafka 9092; do echo waiting for kafka; sleep 2; done;
+              until nc -z datadb 3306; do echo waiting for datadb; sleep 2; done;
       containers:
         - name: alertsystem
-          image: my-alertsystem:v1
+          image: alertsystem:v1
           imagePullPolicy: Never
           env:
             - name: KAFKA_HOST
@@ -131,9 +156,17 @@ spec:
       labels:
         app: alertnotifier
     spec:
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox:1.28
+          command:
+            - 'sh'
+            - '-c'
+            - >
+              until nc -z kafka 9092; do echo waiting for kafka; sleep 2; done;
       containers:
         - name: alertnotifier
-          image: my-alertnotifier:v1
+          image: alertnotifier:v1
           imagePullPolicy: Never
           env:
             - name: KAFKA_HOST
