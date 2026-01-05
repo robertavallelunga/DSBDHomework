@@ -12,16 +12,14 @@ data:
         static_configs:
           - targets: ['localhost:9090']
 
-      # Scraping dei tuoi microservizi (nomi presi dai Service K8s)
       - job_name: 'datacollector'
         static_configs:
-          - targets: ['datacollector:5000']
-        metrics_path: /metrics  # Assumo che le tue app Flask espongano qui le metriche
-
-      # Aggiungi qui alertsystem se espone metriche
+          - targets: ['datacollector:8000']
+        metrics_path: /metrics
+    
       - job_name: 'alertsystem'
         static_configs:
-         - targets: ['alertsystem:5000']
+         - targets: ['alertsystem:8000']
         metrics_path: /metrics
 
 ---
@@ -68,8 +66,9 @@ metadata:
 spec:
   selector:
     app: prometheus
+  type: NodePort
   ports:
     - protocol: TCP
       port: 9090
       targetPort: 9090
-  type: ClusterIP # Usa NodePort se vuoi accedere direttamente senza port-forward
+      nodePort: 30090

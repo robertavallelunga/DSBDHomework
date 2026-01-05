@@ -35,13 +35,17 @@ spec:
             - name: KAFKA_PROCESS_ROLES
               value: "broker,controller"
             - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-              value: "1@kafka:29093"
+              value: "1@localhost:29093"
             - name: KAFKA_LISTENERS
               value: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093"
             - name: KAFKA_ADVERTISED_LISTENERS
               value: "PLAINTEXT://kafka:9092" # Nota: usiamo il nome del Service K8s
             - name: KAFKA_CONTROLLER_LISTENER_NAMES
               value: "CONTROLLER"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: "PLAINTEXT"
             - name: CLUSTER_ID
               value: "MkU3OEVBNTcwNTJENDM2Qk"
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
@@ -51,8 +55,8 @@ spec:
             - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
               value: "1"
           readinessProbe: # Kubernetes controllerà questo prima di mandare traffico
-            exec:
-              command: [ "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092" ]
+            tcpSocket: # <--- Cambia exec in tcpSocket
+              port: 9092     # <--- Controlla solo se la porta risponde
             initialDelaySeconds: 15
             periodSeconds: 10
 ---

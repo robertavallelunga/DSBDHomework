@@ -29,6 +29,7 @@ spec:
       ports:
         - port: 3306 # MySQL
         - port: 5000 # App Internal Port
+        - port: 8000 # Prometheus
 
 ---
 
@@ -79,9 +80,9 @@ spec:
         - podSelector:
             matchLabels:
               app: kafka
-      ports:
-        - port: 9092
-        - port: 29093
+    - ports:
+      - port: 9092
+      - port: 29093
 
 ---
 

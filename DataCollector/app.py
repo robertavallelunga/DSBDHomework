@@ -26,19 +26,20 @@ GRPC_PORT=os.getenv("TARGET_GRPC_PORT", 50051)
 
 circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
 
+KAFKA_HOST = os.getenv('KAFKA_HOST', 'kafka:9092')
 kafka_producer = None
 
 NODE_NAME = os.getenv('data-node', 'unknown-node')
 SERVICE_NAME = 'data-collector'
 
 REQUEST_COUNT = prometheus_client.Counter(
-    'http_requests_total',
+    'datacollector_requests_total',
     'Numero totale di richieste HTTP ricevute',
     ['method', 'endpoint', 'service', 'node']
 )
 
 OPENSKY_LATENCY = prometheus_client.Gauge(
-    'opensky_fetch_seconds',
+    'datacollector_opensky_fetch_seconds',
     'Tempo impiegato per recuperare dati da OpenSky',
     ['service', 'node']
 )
@@ -50,7 +51,7 @@ def init_producer():
 
     try:
         producer = KafkaProducer(
-            bootstrap_servers=['kafka:9092'],    # Indirizzo broker nel Docker
+            bootstrap_servers=[KAFKA_HOST],    # Indirizzo broker nel Docker
             client_id='DataCollector-Producer',
             batch_size=16384,
             linger_ms=50,

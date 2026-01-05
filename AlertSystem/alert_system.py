@@ -15,13 +15,13 @@ NODE_NAME = os.getenv('alert-node', 'unknown-node')
 SERVICE_NAME = 'alert-system'
 
 ALERTS_SENT = prometheus_client.Counter(
-    'alerts_sent_total',
+    'alertsystem_sent_total',
     'Numero totale di alert inviati al topic di notifica',
     ['service', 'node']
 )
 
 PROCESSING_TIME = prometheus_client.Gauge(
-    'alert_system_message_processing_seconds',
+    'alertsystem_message_processing_seconds',
     'Tempo impiegato per processare un singolo messaggio',
     ['service', 'node']
 )

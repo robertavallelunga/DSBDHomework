@@ -58,6 +58,9 @@ spec:
     - name: http
       port: 5000        # Porta esposta al cluster
       targetPort: 5000  # Porta su cui ascolta l'app Flask/Python interna
+    - name: metrics
+      port: 8000
+      targetPort: 8000
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -99,7 +102,25 @@ spec:
               value: "kafka:9092"
             - name: MYSQL_ROOT_PASSWORD
               value: "ermenegildo"
+          ports:
+            - containerPort: 5000
+            - containerPort: 8000
 # --- ALERT SYSTEM ---
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertsystem
+spec:
+  selector:
+    app: alertsystem
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+    - name: metrics
+      port: 8000
+      targetPort: 8000
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -141,7 +162,22 @@ spec:
               value: "mysqldataDB"
             - name: MYSQL_ROOT_PASSWORD
               value: "ermenegildo"
+          ports:
+            - containerPort: 5000
+            - containerPort: 8000
 # --- ALERT NOTIFIER ---
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertnotifier
+spec:
+  selector:
+    app: alertnotifier
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -155,6 +191,7 @@ spec:
     metadata:
       labels:
         app: alertnotifier
+        network: data-net
     spec:
       initContainers:
         - name: wait-for-kafka
