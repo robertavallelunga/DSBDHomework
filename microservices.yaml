@@ -30,12 +30,12 @@ spec:
     spec:
       initContainers:
         - name: wait-for-db
-          image: busybox:1.28 # Immagine leggera con netcat (nc)
+          image: busybox:1.28
           command: [ 'sh', '-c', "until nc -z userdb 3306; do echo waiting for userdb; sleep 2; done" ]
       containers:
         - name: usermanager
-          image: usermanager:v1 # Immagine caricata manualmente
-          imagePullPolicy: Never    # Importante per usare immagini locali di Kind
+          image: usermanager:v1
+          imagePullPolicy: Never
           env:
             - name: GRPC_PORT
               value: "50051"
@@ -56,8 +56,8 @@ spec:
     app: datacollector
   ports:
     - name: http
-      port: 5000        # Porta esposta al cluster
-      targetPort: 5000  # Porta su cui ascolta l'app Flask/Python interna
+      port: 5000
+      targetPort: 5000
     - name: metrics
       port: 8000
       targetPort: 8000

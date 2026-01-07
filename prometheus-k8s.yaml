@@ -21,7 +21,6 @@ data:
         static_configs:
          - targets: ['alertsystem:8000']
         metrics_path: /metrics
-
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -36,8 +35,15 @@ spec:
     metadata:
       labels:
         app: prometheus
-        network: data-net  # Etichetta utile per le NetworkPolicy
+        network: data-net
     spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox:1.28
+          command: [ "sh", "-c", "chown -R 65534:65534 /prometheus && chmod 777 /prometheus" ]
+          volumeMounts:
+            - name: storage-volume
+              mountPath: /prometheus
       containers:
         - name: prometheus
           image: prom/prometheus:latest
@@ -49,14 +55,13 @@ spec:
           volumeMounts:
             - name: config-volume
               mountPath: /etc/prometheus/
-            - name: storage-volume
-              mountPath: /prometheus
       volumes:
         - name: config-volume
           configMap:
             name: prometheus-config
         - name: storage-volume
-          emptyDir: {} # NOTA: Usa una PVC se vuoi persistere i dati delle metriche al riavvio
+          persistentVolumeClaim:
+            claimName: prometheus-pvc
 
 ---
 apiVersion: v1

@@ -1,4 +1,4 @@
-# 1. BLOCCO TOTALE (DEFAULT DENY)
+# 1. BLOCCO CONNESSIONI
 # Nessun pod può ricevere traffico se non esplicitamente permesso.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -10,8 +10,7 @@ spec:
     - Ingress
 
 ---
-
-# 2. RETE DATA (DataCollector <-> DataDB <-> AlertSystem)
+# 2. RETE DATA
 # Permette il traffico tra i pod etichettati come 'network: data-net'
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -29,11 +28,12 @@ spec:
       ports:
         - port: 3306 # MySQL
         - port: 5000 # App Internal Port
-        - port: 8000 # Prometheus
+        - port: 9092
+        - port: 29093
+        - port: 8000 # Prometheus server interno
 
 ---
-
-# 3. RETE USER (UserManager <-> UserDB)
+# 3. RETE USER
 # Permette il traffico tra i pod etichettati come 'network: user-net'
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -50,44 +50,10 @@ spec:
               network: user-net
       ports:
         - port: 3306 # MySQL
-        - port: 50051 # gRPC
 
 ---
-
-# 4. KAFKA RESTRICTED (La Whitelist specifica)
-# Solo i servizi autorizzati possono parlare con Kafka
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-kafka-restricted
-spec:
-  podSelector:
-    matchLabels:
-      app: kafka
-  ingress:
-    - from:
-        # Servizi autorizzati:
-        - podSelector:
-            matchLabels:
-              app: alertsystem
-        - podSelector:
-            matchLabels:
-              app: alertnotifier
-        - podSelector:
-            matchLabels:
-              app: datacollector
-        # Kafka deve parlare con se stesso
-        - podSelector:
-            matchLabels:
-              app: kafka
-    - ports:
-      - port: 9092
-      - port: 29093
-
----
-
-# 5. ACCESSO INGRESS (Dal mondo esterno ai tuoi servizi)
-# Permette al controller Ingress di chiamare le tue API su /add, /new, ecc.
+# 4. ACCESSO INGRESS (Dal mondo esterno ai servizi)
+# Permette al controller Ingress di chiamare le API
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -98,16 +64,14 @@ spec:
       - {key: app, operator: In, values: [usermanager, datacollector]}
   ingress:
     - from:
-        # Consente traffico dal namespace dove gira Nginx Ingress Controller
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
       ports:
         - port: 5000
 ---
-# 6. PONTE gRPC (DataCollector -> UserManager)
-# Eccezione alla separazione delle reti: permette al DataCollector
-# di chiamare via gRPC lo UserManager.
+# 5. PONTE gRPC (DataCollector -> UserManager)
+# Eccezione alla separazione delle reti: permette al DataCollector di chiamare via gRPC lo UserManager.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -124,3 +88,17 @@ spec:
       ports:
         - protocol: TCP
           port: 50051
+---
+# 6. ACCESSO PROMETHEUS ESTERNO
+# Permette di accedere alla dashboard di Prometheus (porta 9090) da fuori il cluster
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-external
+spec:
+  podSelector:
+    matchLabels:
+      app: prometheus
+  ingress:
+    - ports:
+        - port: 9090

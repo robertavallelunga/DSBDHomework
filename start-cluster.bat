@@ -5,6 +5,7 @@ echo ========================================================
 
 :: 1. Creazione del cluster
 echo [1/8] Creazione del cluster Kind...
+if not exist "k8s-data" mkdir "k8s-data"
 kind create cluster --config kind-config.yaml
 if %errorlevel% neq 0 exit /b %errorlevel%
 
@@ -36,6 +37,7 @@ kubectl create secret generic app-secrets --from-env-file=.env
 
 :: 6. Applicazione dei manifesti infrastrutturali (DB, Kafka)
 echo [6/8] Deploy DB e Kafka...
+kubectl apply -f storage.yaml
 kubectl apply -f db-kafka.yaml
 
 :: 7. Applicazione dei microservizi
