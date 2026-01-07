@@ -28,6 +28,7 @@ metadata:
   name: datadb-pvc
 spec:
   storageClassName: manual
+  volumeName: datadb-pv
   accessModes:
     - ReadWriteOnce
   resources:
@@ -56,6 +57,7 @@ metadata:
   name: userdb-pvc
 spec:
   storageClassName: manual
+  volumeName: userdb-pv
   accessModes:
     - ReadWriteOnce
   resources:
@@ -84,6 +86,7 @@ metadata:
   name: kafka-pvc
 spec:
   storageClassName: manual
+  volumeName: kafka-pv
   accessModes:
     - ReadWriteOnce
   resources:
@@ -111,6 +114,7 @@ metadata:
   name: prometheus-pvc
 spec:
   storageClassName: manual
+  volumeName: prometheus-pv
   accessModes:
     - ReadWriteOnce
   resources:
