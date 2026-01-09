@@ -10,8 +10,9 @@
    kind load docker-image datacollector:v1
    kind load docker-image usermanager:v1
 7. kubectl create secret generic app-secrets --from-env-file=.env
-8. kubectl apply -f db-kafka.yaml
-9. kubectl apply -f microservices.yaml
-10. kubectl apply -f prometheus-k8s.yaml
-11. kubectl apply -f ingress.yaml
-12. kubectl apply -f network.yaml
+8. kubectl apply -f storage.yaml
+9. kubectl apply -f db-kafka.yaml
+10. kubectl apply -f microservices.yaml
+11. kubectl apply -f prometheus-k8s.yaml
+12. kubectl apply -f ingress.yaml
+13. kubectl apply -f network.yaml
