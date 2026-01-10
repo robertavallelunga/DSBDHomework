@@ -21,3 +21,13 @@ nodes:
       - containerPort: 30090
         hostPort: 9090
         protocol: TCP
+
+  - role: worker
+    extraMounts:
+      - hostPath: .\k8s-data
+        containerPath: /data-persist
+
+  - role: worker
+    extraMounts:
+      - hostPath: .\k8s-data
+        containerPath: /data-persist

@@ -90,6 +90,10 @@ spec:
           image: datacollector:v1
           imagePullPolicy: Never
           env:
+            - name: data-node
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: TARGET_GRPC_HOST
               value: "usermanager"
             - name: TARGET_GRPC_PORT
@@ -150,6 +154,10 @@ spec:
           image: alertsystem:v1
           imagePullPolicy: Never
           env:
+            - name: alert-node
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: KAFKA_HOST
               value: "kafka:9092"
             - name: INPUT_TOPIC
