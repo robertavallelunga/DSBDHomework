@@ -23,6 +23,7 @@ docker build -t alertsystem:v1 -f AlertSystem/Dockerfile .
 docker build -t alertnotifier:v1 -f AlertNotifierSystem/Dockerfile .
 docker build -t datacollector:v1 -f DataCollector/Dockerfile .
 docker build -t usermanager:v1 -f UserManager/Dockerfile .
+docker build -t sladetector:v1 -f SLABreachDetector/Dockerfile .
 
 :: 4. Caricamento immagini nel cluster Kind
 echo [4/8] Caricamento immagini nel cluster Kind...
@@ -30,6 +31,7 @@ kind load docker-image alertsystem:v1
 kind load docker-image alertnotifier:v1
 kind load docker-image datacollector:v1
 kind load docker-image usermanager:v1
+kind load docker-image sladetector:v1
 
 :: 5. Creazione Secret
 echo [5/8] Creazione Secret da file .env...

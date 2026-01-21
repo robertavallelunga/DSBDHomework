@@ -30,7 +30,8 @@ spec:
         - port: 5000 # App Internal Port
         - port: 9092
         - port: 29093
-        - port: 8000 # Prometheus server interno
+        - port: 8000 # Prometheus server interno. Serve a Prometheus per LEGGERE dai servizi.
+        - port: 9090 # Serve ai servizi (SLA Detector) per LEGGERE da Prometheus.
 
 ---
 # 3. RETE USER
@@ -61,7 +62,7 @@ metadata:
 spec:
   podSelector:
     matchExpressions:
-      - {key: app, operator: In, values: [usermanager, datacollector]}
+      - {key: app, operator: In, values: [usermanager, datacollector, sladetector]}
   ingress:
     - from:
         - namespaceSelector:

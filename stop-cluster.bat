@@ -11,7 +11,7 @@ kind delete cluster
 :: 2. Rimozione delle immagini Docker locali
 echo [2/2] Rimozione immagini Docker create...
 :: Rimuove le immagini v1 costruite precedentemente per liberare spazio
-docker rmi alertsystem:v1 alertnotifier:v1 datacollector:v1 usermanager:v1
+docker rmi alertsystem:v1 alertnotifier:v1 datacollector:v1 usermanager:v1 sladetector:v1
 
 echo ========================================================
 echo PULIZIA COMPLETATA

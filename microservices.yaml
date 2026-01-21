@@ -232,3 +232,57 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: GMAIL_APP_PASSWORD
+
+# --- SLA BREACH DETECTOR ---
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sladetector
+spec:
+  selector:
+    app: sladetector
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sladetector
+spec:
+  replicas: 1 # IMPORTANTE: Solo 1 istanza
+  selector:
+    matchLabels:
+      app: sladetector
+  template:
+    metadata:
+      labels:
+        app: sladetector
+        network: data-net # Lo mettiamo nella stessa rete dei dati per vedere Kafka/Prometheus
+    spec:
+      initContainers:
+        - name: wait-for-deps
+          image: busybox:1.28
+          command:
+            - 'sh'
+            - '-c'
+            - >
+              until nc -z kafka 9092; do echo waiting for kafka; sleep 2; done;
+              until nc -z prometheus 9090; do echo waiting for prometheus; sleep 2; done;
+      containers:
+        - name: sladetector
+          image: sladetector:v1
+          imagePullPolicy: Never
+          env:
+            - name: KAFKA_HOST
+              value: "kafka:9092"
+            - name: KAFKA_TOPIC
+              value: "sla-breach-topic"
+            - name: PROMETHEUS_URL
+              value: "http://prometheus:9090" # Nome del Service Prometheus definito in prometheus-k8s.yaml
+            - name: CHECK_INTERVAL
+              value: "20"
+          ports:
+            - containerPort: 5000

@@ -83,3 +83,12 @@ spec:
                 name: usermanager
                 port:
                   number: 5000
+
+          # --- ROTTE PER SLA DETECTOR ---
+          - path: /sla
+            pathType: Prefix
+            backend:
+              service:
+                name: sladetector
+                port:
+                  number: 5000
