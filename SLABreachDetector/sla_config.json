@@ -1,0 +1,15 @@
+[
+    {
+        "nome_metrica": "alertsystem_message_processing_seconds",
+        "queryPromQL": "alertsystem_message_processing_seconds",
+        "min": 0,
+        "max": 2.0,
+        "description": "Soglia alzata per fermare l'allarme"
+    },
+    {
+        "nome_metrica": "datacollector_opensky_fetch_seconds",
+        "queryPromQL": "datacollector_opensky_fetch_seconds",
+        "min": 0,
+        "max": 1.0
+    }
+]

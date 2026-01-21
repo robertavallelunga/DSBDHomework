@@ -8,7 +8,8 @@ import json
 import prometheus_client
 
 KAFKA_HOST = os.getenv('KAFKA_HOST', 'kafka:9092')
-INPUT_TOPIC = os.getenv('INPUT_TOPIC', 'to-alert-system')
+TOPIC_FLIGHTS = os.getenv('TOPIC_FLIGHTS', 'to-alert-system')
+TOPIC_SLA = os.getenv('TOPIC_SLA', 'sla-breach-topic')
 OUTPUT_TOPIC = os.getenv('OUTPUT_TOPIC', 'to-notifier')
 
 NODE_NAME = os.getenv('alert-node', 'unknown-node')
@@ -17,7 +18,7 @@ SERVICE_NAME = 'alert-system'
 ALERTS_SENT = prometheus_client.Counter(
     'alertsystem_sent_total',
     'Numero totale di alert inviati al topic di notifica',
-    ['service', 'node']
+    ['service', 'node', 'type'] # Aggiunto label 'type' per distinguere SLA da Voli
 )
 
 PROCESSING_TIME = prometheus_client.Gauge(
@@ -48,7 +49,6 @@ def init_producer():
 def init_consumer():
     try:
         consumer = KafkaConsumer(
-            INPUT_TOPIC,
             bootstrap_servers=KAFKA_HOST,
             client_id='AlertSystem-Consumer',
             api_version=(0, 10),
@@ -58,7 +58,10 @@ def init_consumer():
             value_deserializer=lambda m: json.loads(m.decode('utf-8')),
             enable_auto_commit=False
         )
+        #Iscrizione ai due topic
+        consumer.subscribe([TOPIC_FLIGHTS, TOPIC_SLA])
         print("[KAFKA] Connesso con successo.")
+        print(f"[KAFKA] Consumer connesso. In ascolto su: {TOPIC_FLIGHTS}, {TOPIC_SLA}")
         return consumer
     except NoBrokersAvailable:
         print("[KAFKA] Broker non disponibile. Riproverò alla prossima chiamata.")
@@ -115,43 +118,62 @@ def start_alert_system():
         # Loop principale sui messaggi in arrivo
         for message in consumer:
             start = time.time()
-
             data = message.value
-            icao = data.get('icao')
-            arrivi = data.get('arrivi', 0)
-            partenze = data.get('partenze', 0)
-            totale = arrivi + partenze
+            topic_origine = message.topic
 
-            interested_users = get_interested_users(icao)
+            # Messaggio dal SLABreachDetector (TOPIC_SLA)
+            if topic_origine == TOPIC_SLA:
+                print(f"[AlertSystem] Rilevato evento SLA su {topic_origine}")
+                alert_payload = {
+                    "email": "roberta00.vallelunga@gmail.com", # Destinatario fisso
+                    "metric": data.get('metric', 'Unknown'),
+                    "threshold_violated": data.get('threshold_violated', 'N/A'),
+                    "value_observed": data.get('value_observed', 0),
+                    "timestamp": data.get('timestamp', time.time()),
+                    "total_violations": data.get('total_violations', 1)
+                }
+                producer.send(OUTPUT_TOPIC, alert_payload)
+                ALERTS_SENT.labels(service=SERVICE_NAME, node=NODE_NAME, type='sla').inc()
+                print("[AlertSystem] -> Inoltrato SLA alert al Notifier.")
 
-            if not interested_users:
-                print(f"[AlertSystem] Nessun utente interessato a {icao}. Skip.")
-            else:
-                # --- LOGICA CORRETTA: Ciclo sugli utenti ---
-                for user in interested_users:
-                    email = user['email']
-                    hv = user['high_value']
-                    lv = user['low_value']
-                    condition_msg = None
 
-                    # Verifica Soglie
-                    if hv > 0 and totale > hv:
-                        condition_msg = f"SOGLIA SUPERATA: Voli ({totale}) > Soglia Alta ({hv})"
-                    elif lv > 0 and totale < lv:
-                        condition_msg = f"SOGLIA SUPERATA: Voli ({totale}) < Soglia Bassa ({lv})"
+            #Messaggio dai Voli (TOPIC_FLIGHTS)
+            elif topic_origine == TOPIC_FLIGHTS:
+                icao = data.get('icao')
+                arrivi = data.get('arrivi', 0)
+                partenze = data.get('partenze', 0)
+                totale = arrivi + partenze
 
-                    # Invio Alert se necessario
-                    if condition_msg:
-                        alert_payload = {
-                            "email": email,
-                            "icao": icao,
-                            "condition": condition_msg
-                        }
-                        producer.send(OUTPUT_TOPIC, alert_payload)
-                        ALERTS_SENT.labels(service=SERVICE_NAME, node=NODE_NAME).inc()
-                        elapsed = time.time() - start
-                        PROCESSING_TIME.labels(service=SERVICE_NAME, node=NODE_NAME).set(elapsed)
-                        print(f"[AlertSystem] -> Notifica per {email}: {condition_msg}")
+                interested_users = get_interested_users(icao)
+
+                if not interested_users:
+                    print(f"[AlertSystem] Nessun utente interessato a {icao}. Skip.")
+                else:
+                    # Ciclo sugli utenti
+                    for user in interested_users:
+                        email = user['email']
+                        hv = user['high_value']
+                        lv = user['low_value']
+                        condition_msg = None
+
+                        # Verifica Soglie
+                        if hv > 0 and totale > hv:
+                            condition_msg = f"SOGLIA SUPERATA: Voli ({totale}) > Soglia Alta ({hv})"
+                        elif lv > 0 and totale < lv:
+                            condition_msg = f"SOGLIA SUPERATA: Voli ({totale}) < Soglia Bassa ({lv})"
+
+                        # Invio Alert se necessario
+                        if condition_msg:
+                            alert_payload = {
+                                "email": email,
+                                "icao": icao,
+                                "condition": condition_msg
+                            }
+                            producer.send(OUTPUT_TOPIC, alert_payload)
+                            ALERTS_SENT.labels(service=SERVICE_NAME, node=NODE_NAME, type='flight').inc()
+                            elapsed = time.time() - start
+                            PROCESSING_TIME.labels(service=SERVICE_NAME, node=NODE_NAME).set(elapsed)
+                            print(f"[AlertSystem] -> Notifica per {email}: {condition_msg}")
             # Confermiamo a Kafka che abbiamo finito di processare questo messaggio
             # per TUTTI gli utenti interessati.
             try:
@@ -166,9 +188,6 @@ def start_alert_system():
         if producer:
             producer.flush()
             producer.close()
-
-
-
 
 if __name__ == "__main__":
     prometheus_client.start_http_server(8000)

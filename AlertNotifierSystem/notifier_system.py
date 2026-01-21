@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -16,13 +17,8 @@ SENDER_NAME = os.getenv('SENDER_NAME', 'DSBD Alert System')
 # Configurazione Kafka
 KAFKA_HOST = os.getenv('KAFKA_HOST', 'kafka:9092')
 INPUT_TOPIC = os.getenv('INPUT_TOPIC', 'to-notifier')
-kafka_consumer = None
 
 def init_consumer():
-    global kafka_consumer
-    if kafka_consumer:
-        return kafka_consumer
-
     try:
         consumer = KafkaConsumer(
             INPUT_TOPIC,
@@ -32,7 +28,6 @@ def init_consumer():
             max_poll_records=500,
             fetch_max_wait_ms=500,
             value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-            # 1010101010101010 => deserializzazione => Ciao
             enable_auto_commit=False
         )
         kafka_consumer = consumer
@@ -68,15 +63,52 @@ def send_email(email, oggetto, body):
 
 def start_notifier():
     print("[AlertSystem] Inizializzazione... Attesa broker Kafka.")
-    consumer = init_consumer()
+    consumer = None
+    while consumer is None:
+        consumer = init_consumer()
+        if consumer is None:
+            print("In attesa di Kafka...")
+            time.sleep(5)
+
+    print("[Notifier] In attesa di messaggi...")
 
     for message in consumer:
         alert = message.value
         email = alert.get('email')
         airport = alert.get('icao')
         condition = alert.get('condition')
+        oggetto = ""
+        body = ""
 
-        if email and condition:
+        # Alert SLA
+        if 'metric' in alert:
+            metrica = alert.get('metric')
+            soglia = alert.get('threshold_violated')
+            valore = alert.get('value_observed')
+            timestamp = alert.get('timestamp', time.time())
+            # Trasformiamo il timestamp in una data leggibile
+            ts_leggibile = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+            violazioni_totali = alert.get('total_violations', 1)
+
+            oggetto = f"Violazione SLA su {metrica}"
+            body = (
+                f"Salve Admin,\n\n"
+                f"Il sistema di monitoraggio ha rilevato un problema critico.\n"
+                f"------------------------------------------------\n"
+                f"DATA/ORA:       {ts_leggibile}\n"
+                f"METRICA: {metrica}\n"
+                f"SOGLIA VIOLATA:  {soglia}\n"
+                f"VALORE ATTUALE: {valore}\n"
+                f"NUMERO VIOLAZIONI REGISTRATE: {violazioni_totali}\n"
+                f"------------------------------------------------\n\n"
+                f"Si prega di intervenire.\n"
+                f"DSBD Monitoring System"
+            )
+            send_email(email, oggetto, body)
+
+
+        # Alert Voli
+        elif 'icao' in alert:
             oggetto = f"Alert Voli: {airport}"
             body = (f"Salve,\n\n"
                     f"Il sistema ha rilevato una condizione di superamento soglia per l'aeroporto {airport}.\n"
@@ -85,5 +117,6 @@ def start_notifier():
 
             send_email(email, oggetto, body)
 
+        consumer.commit()
 if __name__ == "__main__":
     start_notifier()

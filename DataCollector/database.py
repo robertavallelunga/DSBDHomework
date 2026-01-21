@@ -18,7 +18,7 @@ def get_db_connection():
     global connection_pool
 
     if connection_pool is None:
-        retries = 5
+        retries = 20
         while retries > 0:
             try:
                 # Prova di connessione con 5 tentativi
